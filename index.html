@@ -79,9 +79,13 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, on
 import { getFirestore, doc, setDoc, getDocs, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// COLLE_ICI : remplace les 3 lignes ci-dessous par ton bloc firebaseConfig
 const firebaseConfig = {
-  // colle ici le contenu de ton ancien firebaseConfig
+  apiKey: "AIzaSyA6jhZLez7R8vkO8kr8ZDK56_cA8bZiSXk",
+  authDomain: "tchatche-480f2.firebaseapp.com",
+  projectId: "tchatche-480f2",
+  storageBucket: "tchatche-480f2.firebasestorage.app",
+  messagingSenderId: "307957255636",
+  appId: "1:307957255636:web:cade6a0b56691aa9085a41"
 };
 
 const app = initializeApp(firebaseConfig);
