@@ -2,133 +2,244 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tchatche</title>
 <style>
-  :root{--bleu:#12306b;--soleil:#f2b705;--fond:#eef2f7;--texte:#142033;--rouge:#c8102e}
+  :root{--bleu:#12306b;--soleil:#f2b705;--fond:#eef2f8;--gris:#6b7280}
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
-  body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--fond);color:var(--texte)}
-  .vue{display:none;max-width:480px;height:100%;margin:0 auto;background:#fff;flex-direction:column}
+  body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--fond);color:#111}
+  .vue{display:none;max-width:480px;height:100%;margin:0 auto;flex-direction:column;background:#fff}
   .vue.actif{display:flex}
-  header{background:var(--bleu);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid var(--soleil)}
-  header b{font-size:1.25rem;letter-spacing:.02em}
-  header small{display:block;opacity:.75;font-size:.8rem;margin-top:2px}
+  header{background:var(--bleu);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px}
+  header b{font-size:1.25rem;flex:1}
+  header small{display:block;opacity:.75;font-size:.75rem;font-weight:400}
   button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 16px;cursor:pointer}
-  button:focus-visible,input:focus-visible{outline:3px solid var(--soleil);outline-offset:2px}
-  .principal{background:var(--soleil);color:var(--texte)}
-  .discret{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:8px 12px}
-  #accueil{justify-content:center;padding:28px}
-  #accueil h1{font-size:2.4rem;margin:0 0 4px;color:var(--bleu)}
-  #accueil p{margin:0 0 24px;color:#4a5a73}
-  input{font:inherit;width:100%;padding:13px;margin-bottom:12px;border:1px solid #b8c4d6;border-radius:10px}
-  .ligne{display:flex;gap:10px}.ligne button{flex:1}
-  #connexion{background:var(--bleu);color:#fff}
-  #erreur{color:var(--rouge);min-height:1.4em;margin:12px 0 0}
-  #messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--fond)}
-  .msg{max-width:80%;padding:9px 12px;border-radius:14px;background:#fff;align-self:flex-start;word-wrap:break-word}
-  .msg small{display:block;font-size:.72rem;color:#5b6b85;margin-bottom:2px}
-  .msg.moi{align-self:flex-end;background:var(--bleu);color:#fff}
-  .msg.moi small{color:#c5d1ea}
-  #envoi{display:flex;gap:8px;padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #d5dce8}
-  #envoi input{margin:0}#envoi button{white-space:nowrap}
+  .principal{background:var(--soleil);color:var(--bleu)}
+  .discret{background:transparent;color:#fff;padding:6px 10px}
+  input{font:inherit;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px}
+  .corps{padding:20px;display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto}
+  h2{margin:0;color:var(--bleu)}
+  .info{color:var(--gris);font-size:.9rem;margin:0}
+  .erreur{color:#b91c1c;font-size:.9rem;min-height:1.2em;margin:0}
+  .lien{background:none;color:var(--bleu);text-decoration:underline;padding:4px}
+  .conv{padding:14px 16px;border-bottom:1px solid #e5e7eb;cursor:pointer}
+  .conv b{display:block}
+  .conv span{color:var(--gris);font-size:.85rem}
+  .nouveau{padding:12px 16px;display:flex;gap:8px;border-bottom:1px solid #e5e7eb}
+  .nouveau input{flex:1}
+  #messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--fond)}
+  .bulle{max-width:78%;padding:9px 12px;border-radius:14px;word-wrap:break-word;white-space:pre-wrap}
+  .moi{align-self:flex-end;background:var(--bleu);color:#fff;border-bottom-right-radius:4px}
+  .autre{align-self:flex-start;background:#fff;border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .saisie{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb;background:#fff}
+  .saisie input{flex:1}
 </style>
 </head>
 <body>
 
-<section id="accueil" class="vue">
-  <h1>Tchatche</h1>
-  <p>Écris à tes proches, simplement.</p>
-  <input id="email" type="email" placeholder="Ton e-mail" autocomplete="email">
-  <input id="mdp" type="password" placeholder="Mot de passe (6 caractères minimum)" autocomplete="current-password">
-  <div class="ligne">
-    <button id="connexion">Se connecter</button>
-    <button id="inscription" class="principal">Créer un compte</button>
+<!-- CONNEXION -->
+<section id="vue-connexion" class="vue">
+  <header><b>Tchatche<small>Écris à tes proches, simplement</small></b></header>
+  <div class="corps">
+    <h2 id="titre-connexion">Connexion</h2>
+    <input id="email" type="email" placeholder="Adresse e-mail" autocomplete="email">
+    <input id="mdp" type="password" placeholder="Mot de passe (6 caractères minimum)" autocomplete="current-password">
+    <p id="erreur-connexion" class="erreur"></p>
+    <button id="btn-connexion" class="principal">Se connecter</button>
+    <button id="btn-bascule" class="lien">Pas de compte ? Créer un compte</button>
   </div>
-  <p id="erreur" role="alert"></p>
 </section>
 
-<section id="chat" class="vue">
-  <header>
-    <div><b>Tchatche</b><small id="moi"></small></div>
-    <button id="quitter" class="discret">Quitter</button>
-  </header>
+<!-- LISTE -->
+<section id="vue-liste" class="vue">
+  <header><b>Mes messages<small id="mon-email"></small></b><button id="btn-sortir" class="discret">Quitter</button></header>
+  <div class="nouveau">
+    <input id="email-ami" type="email" placeholder="E-mail de ton proche">
+    <button id="btn-nouveau" class="principal">Écrire</button>
+  </div>
+  <p id="erreur-liste" class="erreur" style="padding:0 16px"></p>
+  <div id="liste" style="flex:1;overflow-y:auto"></div>
+</section>
+
+<!-- DISCUSSION -->
+<section id="vue-chat" class="vue">
+  <header><button id="btn-retour" class="discret">←</button><b id="nom-ami"></b></header>
   <div id="messages"></div>
-  <div id="envoi">
-    <input id="texte" type="text" placeholder="Écris un message" autocomplete="off">
-    <button id="envoyer" class="principal">Envoyer</button>
+  <div class="saisie">
+    <input id="texte" placeholder="Écris ton message" autocomplete="off">
+    <button id="btn-envoyer" class="principal">Envoyer</button>
   </div>
 </section>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDocs, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const app = initializeApp({
-  apiKey: "AIzaSyA6jhZLez7R8vkO8kr8ZDK56_cA8bZiSXk",
-  authDomain: "tchatche-480f2.firebaseapp.com",
-  projectId: "tchatche-480f2",
-  storageBucket: "tchatche-480f2.firebasestorage.app",
-  messagingSenderId: "307957255636",
-  appId: "1:307957255636:web:cade6a0b56691aa9085a41"
-});
+// COLLE_ICI : remplace les 3 lignes ci-dessous par ton bloc firebaseConfig
+const firebaseConfig = {
+  // colle ici le contenu de ton ancien firebaseConfig
+};
+
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
 const $ = id => document.getElementById(id);
-let arreter = null;
+let moi = null, modeCreation = false, stopListe = null, stopChat = null, convActuelle = null;
 
-const erreurs = {
-  "auth/email-already-in-use": "Cet e-mail a déjà un compte. Touche « Se connecter ».",
-  "auth/invalid-email": "Cet e-mail n'est pas valide. Vérifie-le.",
-  "auth/weak-password": "Mot de passe trop court : 6 caractères minimum.",
-  "auth/missing-password": "Écris ton mot de passe.",
-  "auth/invalid-credential": "E-mail ou mot de passe incorrect."
-};
-const voir = id => { document.querySelectorAll(".vue").forEach(v => v.classList.remove("actif")); $(id).classList.add("actif"); };
-
-async function entrer(action) {
-  $("erreur").textContent = "";
-  try { await action(auth, $("email").value.trim(), $("mdp").value); }
-  catch (e) { $("erreur").textContent = erreurs[e.code] || "Échec (" + e.code + "). Réessaie."; }
+function montrer(id){
+  document.querySelectorAll(".vue").forEach(v => v.classList.remove("actif"));
+  $(id).classList.add("actif");
 }
-$("inscription").onclick = () => entrer(createUserWithEmailAndPassword);
-$("connexion").onclick = () => entrer(signInWithEmailAndPassword);
-$("quitter").onclick = () => signOut(auth);
+function idConv(a, b){ return [a, b].sort().join("_"); }
 
-onAuthStateChanged(auth, user => {
-  if (arreter) { arreter(); arreter = null; }
-  if (!user) return voir("accueil");
-  $("moi").textContent = user.email;
-  voir("chat");
-  const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(50));
-  arreter = onSnapshot(q, snap => {
-    const boite = $("messages");
-    boite.innerHTML = "";
-    snap.docs.map(d => d.data()).reverse().forEach(m => {
-      const bulle = document.createElement("div");
-      bulle.className = "msg" + (m.uid === user.uid ? " moi" : "");
-      const qui = document.createElement("small");
-      qui.textContent = m.email;
-      const texte = document.createElement("div");
-      texte.textContent = m.text;
-      bulle.append(qui, texte);
-      boite.append(bulle);
-    });
-    boite.scrollTop = boite.scrollHeight;
-  }, () => { $("messages").textContent = "Impossible de charger les messages."; });
+// ---------- Connexion ----------
+$("btn-bascule").onclick = () => {
+  modeCreation = !modeCreation;
+  $("titre-connexion").textContent = modeCreation ? "Créer un compte" : "Connexion";
+  $("btn-connexion").textContent = modeCreation ? "Créer mon compte" : "Se connecter";
+  $("btn-bascule").textContent = modeCreation ? "Déjà un compte ? Se connecter" : "Pas de compte ? Créer un compte";
+  $("erreur-connexion").textContent = "";
+};
+
+$("btn-connexion").onclick = async () => {
+  const email = $("email").value.trim().toLowerCase();
+  const mdp = $("mdp").value;
+  $("erreur-connexion").textContent = "";
+  try {
+    if (modeCreation) await createUserWithEmailAndPassword(auth, email, mdp);
+    else await signInWithEmailAndPassword(auth, email, mdp);
+  } catch (e) {
+    const m = {
+      "auth/invalid-email": "Adresse e-mail invalide.",
+      "auth/weak-password": "Mot de passe trop court (6 caractères minimum).",
+      "auth/email-already-in-use": "Cette adresse a déjà un compte.",
+      "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
+      "auth/missing-password": "Entre ton mot de passe."
+    };
+    $("erreur-connexion").textContent = m[e.code] || "Connexion impossible. Réessaie.";
+  }
+};
+
+$("btn-sortir").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (stopListe) { stopListe(); stopListe = null; }
+  if (stopChat) { stopChat(); stopChat = null; }
+  if (!user) { moi = null; montrer("vue-connexion"); return; }
+  moi = user;
+  $("mon-email").textContent = user.email;
+  try {
+    await setDoc(doc(db, "profils", user.uid), { email: user.email.toLowerCase(), uid: user.uid }, { merge: true });
+  } catch (e) { console.error("Profil :", e); }
+  ouvrirListe();
 });
 
-async function envoyer() {
-  const t = $("texte").value.trim();
-  if (!t) return;
+// ---------- Liste des conversations ----------
+function ouvrirListe(){
+  montrer("vue-liste");
+  $("erreur-liste").textContent = "";
+  const q = query(collection(db, "conversations"), where("participants", "array-contains", moi.uid));
+  stopListe = onSnapshot(q, snap => {
+    const convs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    convs.sort((a, b) => (b.dernierDate?.seconds || 0) - (a.dernierDate?.seconds || 0));
+    const zone = $("liste");
+    zone.innerHTML = "";
+    if (!convs.length) {
+      const p = document.createElement("p");
+      p.className = "info"; p.style.padding = "16px";
+      p.textContent = "Aucune discussion. Entre l'e-mail d'un proche inscrit pour lui écrire.";
+      zone.appendChild(p);
+      return;
+    }
+    convs.forEach(c => {
+      const autreUid = c.participants.find(u => u !== moi.uid);
+      const nom = (c.emails && c.emails[autreUid]) || "Contact";
+      const div = document.createElement("div");
+      div.className = "conv";
+      const b = document.createElement("b"); b.textContent = nom;
+      const s = document.createElement("span"); s.textContent = c.dernierMessage || "Nouvelle discussion";
+      div.append(b, s);
+      div.onclick = () => ouvrirChat(c.id, nom);
+      zone.appendChild(div);
+    });
+  }, err => {
+    console.error(err);
+    $("erreur-liste").textContent = "Impossible de charger les discussions.";
+  });
+}
+
+$("btn-nouveau").onclick = async () => {
+  const emailAmi = $("email-ami").value.trim().toLowerCase();
+  $("erreur-liste").textContent = "";
+  if (!emailAmi) return;
+  if (emailAmi === moi.email.toLowerCase()) { $("erreur-liste").textContent = "C'est ton propre e-mail."; return; }
+  try {
+    const res = await getDocs(query(collection(db, "profils"), where("email", "==", emailAmi)));
+    if (res.empty) { $("erreur-liste").textContent = "Aucun compte avec cet e-mail. Ton proche doit d'abord s'inscrire."; return; }
+    const ami = res.docs[0].data();
+    const id = idConv(moi.uid, ami.uid);
+    await setDoc(doc(db, "conversations", id), {
+      participants: [moi.uid, ami.uid],
+      emails: { [moi.uid]: moi.email.toLowerCase(), [ami.uid]: ami.email }
+    }, { merge: true });
+    $("email-ami").value = "";
+    ouvrirChat(id, ami.email);
+  } catch (e) {
+    console.error(e);
+    $("erreur-liste").textContent = "Impossible de démarrer la discussion.";
+  }
+};
+
+// ---------- Discussion ----------
+function ouvrirChat(id, nom){
+  convActuelle = id;
+  $("nom-ami").textContent = nom;
+  $("messages").innerHTML = "";
+  montrer("vue-chat");
+  const q = query(collection(db, "conversations", id, "messages"), orderBy("date"));
+  stopChat = onSnapshot(q, snap => {
+    const zone = $("messages");
+    zone.innerHTML = "";
+    snap.docs.forEach(d => {
+      const m = d.data();
+      const div = document.createElement("div");
+      div.className = "bulle " + (m.auteur === moi.uid ? "moi" : "autre");
+      div.textContent = m.texte;
+      zone.appendChild(div);
+    });
+    zone.scrollTop = zone.scrollHeight;
+  }, err => {
+    console.error(err);
+    $("messages").textContent = "Impossible de charger les messages.";
+  });
+}
+
+$("btn-retour").onclick = () => {
+  if (stopChat) { stopChat(); stopChat = null; }
+  convActuelle = null;
+  montrer("vue-liste");
+};
+
+async function envoyer(){
+  const texte = $("texte").value.trim();
+  if (!texte || !convActuelle) return;
   $("texte").value = "";
   try {
-    await addDoc(collection(db, "messages"), { text: t, uid: auth.currentUser.uid, email: auth.currentUser.email, createdAt: serverTimestamp() });
-  } catch (e) { $("texte").value = t; }
+    await addDoc(collection(db, "conversations", convActuelle, "messages"), {
+      texte, auteur: moi.uid, date: serverTimestamp()
+    });
+    await setDoc(doc(db, "conversations", convActuelle), {
+      dernierMessage: texte.slice(0, 60), dernierDate: serverTimestamp()
+    }, { merge: true });
+  } catch (e) { console.error(e); alert("Message non envoyé."); }
 }
-$("envoyer").onclick = envoyer;
-$("texte").onkeydown = e => { if (e.key === "Enter") envoyer(); };
+$("btn-envoyer").onclick = envoyer;
+$("texte").addEventListener("keydown", e => { if (e.key === "Enter") envoyer(); });
 </script>
 </body>
 </html>
