@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tchatche</title>
+<style>
+:root{--bleu:#12306b;--soleil:#f2b705;--fond:#f4f6fb}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:system-ui,sans-serif;background:var(--fond)}
+.vue{display:none;max-width:480px;height:100%;margin:auto;flex-direction:column;background:#fff}
+.vue.actif{display:flex}
+header{background:var(--bleu);color:#fff;padding:14px;display:flex;align-items:center;gap:10px}
+header b{font-size:1.25rem;flex:1}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:12px 16px;cursor:pointer}
+.principal{background:var(--soleil);color:var(--bleu)}
+.lien{background:none;color:var(--bleu);text-decoration:underline}
+.sombre{background:rgba(255,255,255,.2);color:#fff;padding:8px 12px}
+.corps{padding:20px;display:flex;flex-direction:column;gap:12px}
+h2{color:var(--bleu);margin:0}
+input{font:inherit;padding:14px;border:2px solid #cfd6e4;border-radius:12px;width:100%}
+.erreur{color:#c0261d;min-height:1.2em}
+#liste{overflow:auto;flex:1}
+.contact{padding:16px;border-bottom:1px solid #e5e9f2;cursor:pointer}
+#messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--fond)}
+.msg{max-width:78%;padding:10px 14px;border-radius:16px;background:#fff;align-self:flex-start;word-wrap:break-word}
+.msg.moi{background:var(--soleil);align-self:flex-end}
+.saisie{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e9f2}
+</style>
+</head>
+<body>
+
+<section class="vue actif" id="v-connexion">
+  <header><b>Tchatche</b></header>
+  <div class="corps">
+    <small>Écris à tes proches, simplement</small>
+    <h2 id="titre-connexion">Connexion</h2>
+    <input id="email" type="email" placeholder="Adresse e-mail" autocomplete="email">
+    <input id="mdp" type="password" placeholder="Mot de passe (6 caractères minimum)" autocomplete="current-password">
+    <div class="erreur" id="erreur-connexion"></div>
+    <button class="principal" id="btn-connexion">Se connecter</button>
+    <button class="lien" id="btn-bascule">Pas de compte ? Créer un compte</button>
+  </div>
+</section>
+
+<section class="vue" id="v-contacts">
+  <header><b>Contacts</b><button class="sombre" id="btn-deco">Quitter</button></header>
+  <div id="liste"></div>
+</section>
+
+<section class="vue" id="v-chat">
+  <header><button class="sombre" id="btn-retour">←</button><b id="nom-chat"></b></header>
+  <div id="messages"></div>
+  <div class="saisie">
+    <input id="texte" placeholder="Écris ton message" autocomplete="off">
+    <button class="principal" id="btn-envoyer">Envoyer</button>
+  </div>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDocs, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA6jhZLez7R8vkO8kr8ZDK56_cA8bZiSXk",
+  authDomain: "tchatche-480f2.firebaseapp.com",
+  projectId: "tchatche-480f2",
+  storageBucket: "tchatche-480f2.firebasestorage.app",
+  messagingSenderId: "307957255636",
+  appId: "1:307957255636:web:cade6a0b56691aa9085a41"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+
+let moi = null, modeCreation = false, stopMessages = null, autre = null;
+
+function montrer(id){
+  document.querySelectorAll(".vue").forEach(v => v.classList.remove("actif"));
+  $(id).classList.add("actif");
+}
+function idConv(a, b){ return [a, b].sort().join("_"); }
+function erreurVisible(txt){ $("erreur-connexion").textContent = txt; }
+
+window.addEventListener("error", e => erreurVisible("Erreur : " + e.message));
+window.addEventListener("unhandledrejection", e => erreurVisible("Erreur : " + (e.reason && e.reason.message || e.reason)));
+
+// ---------- Connexion ----------
+$("btn-bascule").onclick = () => {
+  modeCreation = !modeCreation;
+  $("titre-connexion").textContent = modeCreation ? "Créer un compte" : "Connexion";
+  $("btn-connexion").textContent = modeCreation ? "Créer mon compte" : "Se connecter";
+  $("btn-bascule").textContent = modeCreation ? "Déjà un compte ? Se connecter" : "Pas de compte ? Créer un compte";
+  erreurVisible("");
+};
+
+$("btn-connexion").onclick = async () => {
+  const email = $("email").value.trim(), mdp = $("mdp").value;
+  erreurVisible("");
+  try {
+    if (modeCreation){
+      await createUserWithEmailAndPassword(auth, email, mdp);
+    } else {
+      await signInWithEmailAndPassword(auth, email, mdp);
+    }
+  } catch (e) {
+    erreurVisible("Impossible : " + e.code);
+  }
+};
+
+$("btn-deco").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (stopMessages){ stopMessages(); stopMessages = null; }
+  if (!user){ moi = null; montrer("v-connexion"); return; }
+  moi = user;
+  // Enregistre (ou met à jour) le profil dans "users"
+  try {
+    await setDoc(doc(db, "users", user.uid), { email: user.email, uid: user.uid }, { merge: true });
+  } catch (e) {}
+  montrer("v-contacts");
+  await chargerContacts();
+});
+
+// ---------- Contacts ----------
+async function chargerContacts(){
+  const liste = $("liste");
+  liste.innerHTML = "";
+  try {
+    const snap = await getDocs(collection(db, "users"));
+    let n = 0;
+    snap.forEach(d => {
+      const u = d.data();
+      if (u.uid === moi.uid) return;
+      n++;
+      const div = document.createElement("div");
+      div.className = "contact";
+      div.textContent = u.email;
+      div.onclick = () => ouvrirChat(u);
+      liste.appendChild(div);
+    });
+    if (!n) liste.innerHTML = '<div class="contact">Aucun autre compte pour le moment. Crée un deuxième compte pour tester.</div>';
+  } catch (e) {
+    liste.innerHTML = '<div class="contact">Erreur : ' + (e.code || e.message) + '</div>';
+  }
+}
+
+// ---------- Chat ----------
+async function assurerChat(u){
+  // Crée le document de conversation (nécessaire avant les messages selon tes règles)
+  try {
+    await setDoc(doc(db, "chats", idConv(moi.uid, u.uid)), { participants: [moi.uid, u.uid] });
+  } catch (e) { /* existe déjà : on continue */ }
+}
+
+async function ouvrirChat(u){
+  autre = u;
+  $("nom-chat").textContent = u.email;
+  $("messages").innerHTML = "";
+  montrer("v-chat");
+  await assurerChat(u);
+  const q = query(collection(db, "chats", idConv(moi.uid, u.uid), "messages"), orderBy("date"));
+  stopMessages = onSnapshot(q, snap => {
+    const zone = $("messages");
+    zone.innerHTML = "";
+    snap.forEach(d => {
+      const m = d.data();
+      const div = document.createElement("div");
+      div.className = "msg" + (m.senderId === moi.uid ? " moi" : "");
+      div.textContent = m.texte;
+      zone.appendChild(div);
+    });
+    zone.scrollTop = zone.scrollHeight;
+  }, e => { $("messages").textContent = "Erreur : " + (e.code || e.message); });
+}
+
+$("btn-retour").onclick = () => {
+  if (stopMessages){ stopMessages(); stopMessages = null; }
+  montrer("v-contacts");
+};
+
+async function envoyer(){
+  const txt = $("texte").value.trim();
+  if (!txt || !autre) return;
+  $("texte").value = "";
+  try {
+    await addDoc(collection(db, "chats", idConv(moi.uid, autre.uid), "messages"),
+      { texte: txt, senderId: moi.uid, date: serverTimestamp() });
+  } catch (e) {
+    $("messages").insertAdjacentText("beforeend", "Erreur : " + (e.code || e.message));
+  }
+}
+$("btn-envoyer").onclick = envoyer;
+$("texte").addEventListener("keydown", e => { if (e.key === "Enter") envoyer(); });
+</script>
+</body>
+</html>
