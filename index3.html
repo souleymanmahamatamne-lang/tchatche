@@ -26,6 +26,7 @@ input{font:inherit;padding:14px;border:2px solid #cfd6e4;border-radius:12px;widt
 #messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--fond)}
 .msg{max-width:78%;padding:10px 14px;border-radius:16px;background:#fff;align-self:flex-start;word-wrap:break-word}
 .msg.moi{background:var(--soleil);align-self:flex-end}
+.heure{display:block;font-size:.7rem;opacity:.6;text-align:right;margin-top:4px}
 .saisie{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e9f2}
 </style>
 </head>
@@ -88,6 +89,17 @@ function montrer(id){
 function idConv(a, b){ return [a, b].sort().join("_"); }
 function erreurVisible(txt){ $("erreur-connexion").textContent = txt; }
 
+// Formate l'heure d'un message (ex : 19:42). Ajoute la date si ce n'est pas aujourd'hui.
+function formaterHeure(ts){
+  if (!ts || !ts.toDate) return "";
+  const d = ts.toDate();
+  const heure = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const aujourdhui = new Date();
+  if (d.toDateString() === aujourdhui.toDateString()) return heure;
+  const jour = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  return jour + " " + heure;
+}
+
 window.addEventListener("error", e => erreurVisible("Erreur : " + e.message));
 window.addEventListener("unhandledrejection", e => erreurVisible("Erreur : " + (e.reason && e.reason.message || e.reason)));
 
@@ -96,108 +108,6 @@ $("btn-bascule").onclick = () => {
   modeCreation = !modeCreation;
   $("titre-connexion").textContent = modeCreation ? "Créer un compte" : "Connexion";
   $("btn-connexion").textContent = modeCreation ? "Créer mon compte" : "Se connecter";
-  $("btn-bascule").textContent = modeCreation ? "Déjà un compte ? Se connecter" : "Pas de compte ? Créer un compte";
-  erreurVisible("");
-};
+  
 
-$("btn-connexion").onclick = async () => {
-  const email = $("email").value.trim(), mdp = $("mdp").value;
-  erreurVisible("");
-  try {
-    if (modeCreation){
-      await createUserWithEmailAndPassword(auth, email, mdp);
-    } else {
-      await signInWithEmailAndPassword(auth, email, mdp);
-    }
-  } catch (e) {
-    erreurVisible("Impossible : " + e.code);
-  }
-};
 
-$("btn-deco").onclick = () => signOut(auth);
-
-onAuthStateChanged(auth, async user => {
-  if (stopMessages){ stopMessages(); stopMessages = null; }
-  if (!user){ moi = null; montrer("v-connexion"); return; }
-  moi = user;
-  // Enregistre (ou met à jour) le profil dans "users"
-  try {
-    await setDoc(doc(db, "users", user.uid), { email: user.email, uid: user.uid }, { merge: true });
-  } catch (e) {}
-  montrer("v-contacts");
-  await chargerContacts();
-});
-
-// ---------- Contacts ----------
-async function chargerContacts(){
-  const liste = $("liste");
-  liste.innerHTML = "";
-  try {
-    const snap = await getDocs(collection(db, "users"));
-    let n = 0;
-    snap.forEach(d => {
-      const u = d.data();
-      if (u.uid === moi.uid) return;
-      n++;
-      const div = document.createElement("div");
-      div.className = "contact";
-      div.textContent = u.email;
-      div.onclick = () => ouvrirChat(u);
-      liste.appendChild(div);
-    });
-    if (!n) liste.innerHTML = '<div class="contact">Aucun autre compte pour le moment. Crée un deuxième compte pour tester.</div>';
-  } catch (e) {
-    liste.innerHTML = '<div class="contact">Erreur : ' + (e.code || e.message) + '</div>';
-  }
-}
-
-// ---------- Chat ----------
-async function assurerChat(u){
-  // Crée le document de conversation (nécessaire avant les messages selon tes règles)
-  try {
-    await setDoc(doc(db, "chats", idConv(moi.uid, u.uid)), { participants: [moi.uid, u.uid] });
-  } catch (e) { /* existe déjà : on continue */ }
-}
-
-async function ouvrirChat(u){
-  autre = u;
-  $("nom-chat").textContent = u.email;
-  $("messages").innerHTML = "";
-  montrer("v-chat");
-  await assurerChat(u);
-  const q = query(collection(db, "chats", idConv(moi.uid, u.uid), "messages"), orderBy("date"));
-  stopMessages = onSnapshot(q, snap => {
-    const zone = $("messages");
-    zone.innerHTML = "";
-    snap.forEach(d => {
-      const m = d.data();
-      const div = document.createElement("div");
-      div.className = "msg" + (m.senderId === moi.uid ? " moi" : "");
-      div.textContent = m.texte;
-      zone.appendChild(div);
-    });
-    zone.scrollTop = zone.scrollHeight;
-  }, e => { $("messages").textContent = "Erreur : " + (e.code || e.message); });
-}
-
-$("btn-retour").onclick = () => {
-  if (stopMessages){ stopMessages(); stopMessages = null; }
-  montrer("v-contacts");
-};
-
-async function envoyer(){
-  const txt = $("texte").value.trim();
-  if (!txt || !autre) return;
-  $("texte").value = "";
-  try {
-    await addDoc(collection(db, "chats", idConv(moi.uid, autre.uid), "messages"),
-      { texte: txt, senderId: moi.uid, date: serverTimestamp() });
-  } catch (e) {
-    $("messages").insertAdjacentText("beforeend", "Erreur : " + (e.code || e.message));
-  }
-}
-$("btn-envoyer").onclick = envoyer;
-$("texte").addEventListener("keydown", e => { if (e.key === "Enter") envoyer(); });
-</script>
-</body>
-</html>
