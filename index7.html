@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tchatche</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#FF7A00">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#222}
+  header{background:#1a2d66;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+  header h1{margin:0;font-size:20px}
+  header small{display:block;opacity:.8;font-size:12px}
+  button{border:0;border-radius:10px;padding:12px 16px;font-size:16px;cursor:pointer}
+  .primary{background:#e6b840;color:#1a2d66;font-weight:bold}
+  .link{background:none;color:#fff;font-weight:bold}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid #c8cfdd;border-radius:10px}
+  .box{padding:16px}
+  .row{display:flex;gap:8px}
+  .err{color:#a02020;padding:8px 16px}
+  .item{background:#fff;padding:14px 16px;border-bottom:1px solid #e5e7ee;cursor:pointer}
+  #msgs{padding:12px;display:flex;flex-direction:column;gap:8px;height:calc(100vh - 150px);overflow-y:auto}
+  .m{max-width:78%;padding:8px 12px;border-radius:14px;background:#fff;align-self:flex-start;word-wrap:break-word}
+  .m.me{background:#d7e3ff;align-self:flex-end}
+  .m.call{align-self:center;background:#fdecec;color:#a02020;text-align:center;max-width:90%}
+  .t{display:block;font-size:11px;color:#666;margin-top:4px;text-align:right}
+  .m.call .t{text-align:center}
+  .hidden{display:none!important}
+  #installBar{background:#FF7A00;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:bold}
+  #callScreen{position:fixed;inset:0;background:#1a2d66;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:10;text-align:center;padding:20px}
+  #callScreen h2{margin:0;font-size:24px}
+  #callStatus{font-size:18px;opacity:.9}
+  .green{background:#2e9e4f;color:#fff;font-weight:bold}
+  .red{background:#c63b3b;color:#fff;font-weight:bold}
+</style>
+</head>
+<body>
+
+<div id="installBar" class="hidden">
+  <span>Installer Tchatche</span>
+  <button class="primary" id="btnInstall">Installer</button>
+</div>
+
+<div id="login" class="box">
+  <h2>Tchatche</h2>
+  <p>Écris à tes proches, simplement</p>
+  <input id="email" type="email" placeholder="E-mail"><br><br>
+  <input id="pass" type="password" placeholder="Mot de passe"><br><br>
+  <div class="row">
+    <button class="primary" id="btnLogin">Se connecter</button>
+    <button id="btnSignup">Créer un compte</button>
+  </div>
+  <div id="loginErr" class="err"></div>
+</div>
+
+<div id="home" class="hidden">
+  <header>
+    <div><h1>Mes messages</h1><small id="me"></small></div>
+    <button class="link" id="btnOut">Quitter</button>
+  </header>
+  <div class="box row">
+    <input id="proche" type="email" placeholder="E-mail de ton proche">
+    <button class="primary" id="btnWrite">Écrire</button>
+  </div>
+  <div id="homeErr" class="err"></div>
+  <div id="chatList"></div>
+</div>
+
+<div id="chat" class="hidden">
+  <header>
+    <button class="link" id="btnBack">← Retour</button>
+    <div id="chatTitle"></div>
+    <button class="link" id="btnCall">📞 Appeler</button>
+  </header>
+  <div id="msgs"></div>
+  <div class="box row">
+    <input id="txt" type="text" placeholder="Ton message">
+    <button class="primary" id="btnSend">Envoyer</button>
+  </div>
+</div>
+
+<div id="callScreen" class="hidden">
+  <h2 id="callName"></h2>
+  <div id="callStatus"></div>
+  <div class="row">
+    <button class="green hidden" id="btnAnswer">Répondre</button>
+    <button class="red" id="btnHang">Raccrocher</button>
+  </div>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA6jhZLez7R8vkO8kr8ZDK56_cA8bZiSXk",
+  authDomain: "tchatche-480f2.firebaseapp.com",
+  projectId: "tchatche-480f2",
+  storageBucket: "tchatche-480f2.firebasestorage.app",
+  messagingSenderId: "307957255636",
+  appId: "1:307957255636:web:cade6a0b56691aa9085a41"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+let user = null, unsubMsgs = null, unsubChats = null, unsubMissed = null;
+let currentChatId = null;
+let msgItems = [], missedItems = [];
+
+/* ===== Installation ===== */
+let installEvent = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  installEvent = e;
+  $("installBar").classList.remove("hidden");
+});
+$("btnInstall").onclick = async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  try { await installEvent.userChoice; } catch(e){}
+  installEvent = null;
+  $("installBar").classList.add("hidden");
+};
+window.addEventListener("appinstalled", () => $("installBar").classList.add("hidden"));
+
+function show(name){
+  ["login","home","chat"].forEach(n => $(n).classList.toggle("hidden", n !== name));
+}
+
+function formatDate(ts){
+  const d = ts && ts.toDate ? ts.toDate() : new Date();
+  return d.toLocaleString("fr-FR", {day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"});
+}
+
+function ms(ts){ return ts && ts.toMillis ? ts.toMillis() : Date.now(); }
+
+$("btnLogin").onclick = async () => {
+  $("loginErr").textContent = "";
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); }
+  catch(e){ $("loginErr").textContent = "Connexion impossible : " + e.code; }
+};
+
+$("btnSignup").onclick = async () => {
+  $("loginErr").textContent = "";
+  try { await createUserWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); }
+  catch(e){ $("loginErr").textContent = "Création impossible : " + e.code; }
+};
+
+$("btnOut").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async u => {
+  if (unsubChats) { unsubChats(); unsubChats = null; }
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  if (unsubMissed) { unsubMissed(); unsubMissed = null; }
+  stopListeningCalls();
+  user = u;
+  if (!u) { show("login"); return; }
+  $("me").textContent = u.email;
+  try { await setDoc(doc(db, "users", u.uid), { email: u.email.toLowerCase(), uid: u.uid }, { merge: true }); } catch(e){}
+  show("home");
+  loadChats();
+  listenCalls();
+});
+
+function loadChats(){
+  const q = query(collection(db, "chats"), where("participants", "array-contains", user.uid));
+  unsubChats = onSnapshot(q, snap => {
+    $("homeErr").textContent = "";
+    const list = $("chatList");
+    list.innerHTML = "";
+    snap.forEach(d => {
+      const data = d.data();
+      const myMail = user.email.toLowerCase();
+      let other = (data.emails || []).find(e => e !== myMail);
+      const div = document.createElement("div");
+      div.className = "item";
+      div.textContent = other || "Discussion";
+      div.onclick = () => openChat(d.id, div.textContent);
+      list.appendChild(div);
+      if (!other) {
+        const otherUid = (data.participants || []).find(p => p !== user.uid);
+        if (otherUid) {
+          getDoc(doc(db, "users", otherUid)).then(s => {
+            if (s.exists() && s.data().email) div.textContent = s.data().email;
+          }).catch(() => {});
+        }
+      }
+    });
+  }, () => { $("homeErr").textContent = "Impossible de charger les discussions."; });
+}
+
+$("btnWrite").onclick = async () => {
+  $("homeErr").textContent = "";
+  const mail = $("proche").value.trim().toLowerCase();
+  if (!mail) return;
+  try {
+    const r = await getDocs(query(collection(db, "users"), where("email", "==", mail)));
+    if (r.empty) { $("homeErr").textContent = "Cette personne n'a pas encore de compte Tchatche."; return; }
+    const other = r.docs[0].data();
+    const id = [user.uid, other.uid].sort().join("_");
+    await setDoc(doc(db, "chats", id), {
+      participants: [user.uid, other.uid],
+      emails: [user.email.toLowerCase(), mail]
+    }, { merge: true });
+    $("proche").value = "";
+    openChat(id, mail);
+  } catch(e){ $("homeErr").textContent = "Erreur : " + e.code; }
+};
+
+function renderChat(){
+  const box = $("msgs");
+  box.innerHTML = "";
+  const all = msgItems.concat(missedItems).sort((a, b) => a.time - b.time);
+  all.forEach(it => {
+    const div = document.createElement("div");
+    const span = document.createElement("span");
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = formatDate(it.ts);
+    if (it.kind === "call") {
+      div.className = "m call";
+      span.textContent = it.mine ? "📞 Appel sans réponse" : "📞 Appel manqué";
+    } else {
+      div.className = "m" + (it.mine ? " me" : "");
+      span.textContent = it.text;
+    }
+    div.appendChild(span);
+    div.appendChild(t);
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function openChat(id, title){
+  show("chat");
+  currentChatId = id;
+  $("chatTitle").textContent = title;
+  $("btnSend").dataset.id = id;
+  msgItems = [];
+  missedItems = [];
+  if (unsubMsgs) unsubMsgs();
+  if (unsubMissed) unsubMissed();
+  const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt", "desc"), limit(30));
+  unsubMsgs = onSnapshot(q, snap => {
+    msgItems = snap.docs.map(d => {
+      const m = d.data();
+      return { kind: "msg", text: m.text, mine: m.senderId === user.uid, ts: m.createdAt, time: ms(m.createdAt) };
+    });
+    renderChat();
+  });
+  const cq = query(collection(db, "chats", id, "calls"), where("status", "==", "missed"));
+  unsubMissed = onSnapshot(cq, snap => {
+    missedItems = snap.docs.map(d => {
+      const c = d.data();
+      return { kind: "call", mine: c.callerId === user.uid, ts: c.createdAt, time: ms(c.createdAt) };
+    }).sort((a, b) => b.time - a.time).slice(0, 20);
+    renderChat();
+  }, () => {});
+}
+
+$("btnBack").onclick = () => {
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  if (unsubMissed) { unsubMissed(); unsubMissed = null; }
+  currentChatId = null;
+  show("home");
+};
+
+async function send(){
+  const id = $("btnSend").dataset.id;
+  const text = $("txt").value.trim();
+  if (!text || !id) return;
+  $("txt").value = "";
+  try {
+    await addDoc(collection(db, "chats", id, "messages"), {
+      text, senderId: user.uid, createdAt: serverTimestamp()
+    });
+  } catch(e){ alert("Message non envoyé : " + e.code); }
+}
+$("btnSend").onclick = send;
+$("txt").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+
+/* ================= APPELS VOCAUX ================= */
+
+const rtcConfig = { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" }
+]};
+
+let pc = null, localStream = null, callRef = null;
+let unsubCall = null, unsubCandidates = null, unsubCallsIn = null;
+let incomingCallDoc = null;
+let callAnswered = false;
+
+function callStatus(text){ $("callStatus").textContent = text; }
+
+function showCallScreen(name, status, canAnswer){
+  $("callName").textContent = name;
+  callStatus(status);
+  $("btnAnswer").classList.toggle("hidden", !canAnswer);
+  $("callScreen").classList.remove("hidden");
+}
+
+function cleanupCall(){
+  if (unsubCall) { unsubCall(); unsubCall = null; }
+  if (unsubCandidates) { unsubCandidates(); unsubCandidates = null; }
+  if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.close(); pc = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("remoteAudio").srcObject = null;
+  callRef = null;
+  incomingCallDoc = null;
+  callAnswered = false;
+  $("callScreen").classList.add("hidden");
+}
+
+async function setupPeer(role){
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  pc = new RTCPeerConnection(rtcConfig);
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  pc.ontrack = e => {
+    $("remoteAudio").srcObject = e.streams[0];
+    $("remoteAudio").play().catch(() => {});
+  };
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      addDoc(collection(callRef, role + "Candidates"), e.candidate.toJSON()).catch(() => {});
+    }
+  };
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    if (pc.connectionState === "connected") callStatus("En communication");
+    if (pc.connectionState === "failed") callStatus("Connexion impossible");
+  };
+}
+
+function listenRemoteCandidates(otherRole){
+  unsubCandidates = onSnapshot(collection(callRef, otherRole + "Candidates"), snap => {
+    snap.docChanges().forEach(ch => {
+      if (ch.type === "added" && pc) {
+        pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
+      }
+    });
+  });
+}
+
+$("btnCall").onclick = async () => {
+  if (!currentChatId || pc) return;
+  const title = $("chatTitle").textContent;
+  const otherUid = currentChatId.split("_").find(p => p !== user.uid);
+  callAnswered = false;
+  try {
+    showCallScreen(title, "Appel en cours...", false);
+    callRef = doc(collection(db, "chats", currentChatId, "calls"));
+    await setupPeer("caller");
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await setDoc(callRef, {
+      callerId: user.uid,
+      callerEmail: user.email.toLowerCase(),
+      calleeId: otherUid,
+      status: "ringing",
+      offer: { type: offer.type, sdp: offer.sdp },
+      createdAt: serverTimestamp()
+    });
+    listenRemoteCandidates("callee");
+    unsubCall = onSnapshot(callRef, async snap => {
+      const data = snap.data();
+      if (!data) return;
+      if (data.answer) callAnswered = true;
+      if (data.answer && pc && !pc.currentRemoteDescription) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        callStatus("Connexion...");
+      }
+      if (data.status === "ended" || data.status === "declined") {
+        callStatus(data.status === "declined" ? "Appel refusé" : "Appel terminé");
+        setTimeout(cleanupCall, 1200);
+      }
+    });
+  } catch(e){
+    callStatus("Erreur : " + (e.name || e.code || e.message));
+    setTimeout(cleanupCall, 2500);
+  }
+};
+
+function listenCalls(){
+  const q = query(collection(db, "chats"), where("participants", "array-contains", user.uid));
+  const callUnsubs = {};
+  unsubCallsIn = onSnapshot(q, snap => {
+    snap.docChanges().forEach(ch => {
+      if (ch.type === "added") {
+        const chatId = ch.doc.id;
+        const cq = query(collection(db, "chats", chatId, "calls"), where("calleeId", "==", user.uid), where("status", "==", "ringing"));
+        callUnsubs[chatId] = onSnapshot(cq, csnap => {
+          csnap.docChanges().forEach(c => {
+            if (c.type === "added" && !pc && !incomingCallDoc) {
+              const created = c.doc.data().createdAt;
+              const age = created && created.toDate ? Date.now() - created.toDate().getTime() : 0;
+              if (age > 60000) return;
+              incomingCallDoc = c.doc;
+              callRef = c.doc.ref;
+              showCallScreen(c.doc.data().callerEmail || "Appel entrant", "Appel entrant...", true);
+              unsubCall = onSnapshot(callRef, s => {
+                const d = s.data();
+                if (d && (d.status === "ended" || d.status === "missed")) {
+                  callStatus(d.status === "missed" ? "Appel manqué" : "Appel terminé");
+                  setTimeout(cleanupCall, 1200);
+                }
+              });
+            }
+          });
+        }, () => {});
+      }
+    });
+  }, () => {});
+  unsubCallsIn.extra = callUnsubs;
+}
+
+function stopListeningCalls(){
+  if (unsubCallsIn) {
+    if (unsubCallsIn.extra) Object.values(unsubCallsIn.extra).forEach(f => f());
+    unsubCallsIn();
+    unsubCallsIn = null;
+  }
+  cleanupCall();
+}
+
+$("btnAnswer").onclick = async () => {
+  if (!incomingCallDoc) return;
+  try {
+    $("btnAnswer").classList.add("hidden");
+    callStatus("Connexion...");
+    const data = incomingCallDoc.data();
+    await setupPeer("callee");
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    listenRemoteCandidates("caller");
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await updateDoc(callRef, {
+      answer: { type: answer.type, sdp: answer.sdp },
+      status: "active"
+    });
+  } catch(e){
+    callStatus("Erreur : " + (e.name || e.code || e.message));
+    setTimeout(cleanupCall, 2500);
+  }
+};
+
+$("btnHang").onclick = async () => {
+  try {
+    if (callRef) {
+      const wasRinging = incomingCallDoc && !pc;
+      let status = "ended";
+      if (wasRinging) status = "declined";
+      else if (!incomingCallDoc && !callAnswered) status = "missed";
+      await updateDoc(callRef, { status });
+    }
+  } catch(e){}
+  cleanupCall();
+};
+</script>
+</body>
+</html>
