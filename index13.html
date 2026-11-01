@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tchatche</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#075E54">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,sans-serif;background:#f0f2f5;color:#222}
+  header{background:#075E54;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+  header h1{margin:0;font-size:20px}
+  header small{display:block;opacity:.8;font-size:12px}
+  button{border:0;border-radius:10px;padding:12px 16px;font-size:16px;cursor:pointer}
+  .primary{background:#25D366;color:#fff;font-weight:bold}
+  .link{background:none;color:#fff;font-weight:bold}
+  .ctitle{flex:1;min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;font-size:14px}
+  .hbtns{display:flex}
+  .hbtns .link{padding:8px 10px;font-size:22px}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid #c8d3d0;border-radius:10px}
+  textarea{width:100%;padding:12px;font-size:16px;border:1px solid #c8d3d0;border-radius:10px;font-family:Arial,sans-serif;resize:none}
+  select{width:100%;padding:12px;font-size:16px;border:1px solid #c8d3d0;border-radius:10px;background:#fff;font-family:Arial,sans-serif}
+  .box{padding:16px}
+  .row{display:flex;gap:8px}
+  .err{color:#a02020;padding:8px 16px}
+  .item{background:#fff;padding:14px 16px;border-bottom:1px solid #e5e7ee;cursor:pointer}
+  #home,#calls,#posts,#statuts{padding-bottom:78px}
+  #msgs{padding:12px;display:flex;flex-direction:column;gap:8px;height:calc(100vh - 150px);overflow-y:auto;background:#ECE5DD}
+  .m{max-width:78%;padding:8px 12px;border-radius:12px;background:#fff;align-self:flex-start;word-wrap:break-word;box-shadow:0 1px 1px rgba(0,0,0,.12)}
+  .m.me{background:#DCF8C6;align-self:flex-end}
+  .m.call{align-self:center;background:#fdecec;color:#a02020;text-align:center;max-width:90%}
+  .t{display:block;font-size:11px;color:#667781;margin-top:4px;text-align:right}
+  .m.call .t{text-align:center}
+  .post{background:#fff;padding:14px 16px;border-bottom:1px solid #e5e7ee}
+  .post strong{display:block;font-size:14px;color:#075E54}
+  .post p{margin:6px 0;white-space:pre-wrap;word-wrap:break-word}
+  .del{background:none;color:#a02020;padding:4px 0;font-size:14px}
+  .hidden{display:none!important}
+  #installBar{background:#128C7E;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:bold}
+  #nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #dde3e0;display:flex;z-index:5;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tab{flex:1;background:none;border-radius:0;padding:8px 4px;font-size:22px;color:#667781;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .tab span{font-size:12px}
+  .tab.active{color:#075E54;font-weight:bold}
+  .crow{background:#fff;padding:10px 16px;border-bottom:1px solid #e5e7ee;display:flex;align-items:center;gap:12px;cursor:pointer}
+  .av{width:46px;height:46px;border-radius:50%;background:#128C7E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;flex-shrink:0}
+  .cmid{flex:1;min-width:0}
+  .cname{font-size:16px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cname.missed{color:#c63b3b}
+  .csub{font-size:13px;color:#667781;margin-top:2px}
+  .cday{font-size:13px;color:#667781;flex-shrink:0}
+  #callScreen{position:fixed;inset:0;background:#075E54;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:10;text-align:center;padding:20px}
+  #callScreen.video{justify-content:flex-end;padding-bottom:48px}
+  #callScreen h2{margin:0;font-size:24px}
+  #callStatus{font-size:18px;opacity:.9}
+  #callName,#callStatus,#callScreen .row{position:relative;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+  #remoteVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
+  #localVideo{position:absolute;top:56px;right:16px;width:100px;height:140px;object-fit:cover;border-radius:10px;background:#222;z-index:2;transform:scaleX(-1)}
+  .green{background:#25D366;color:#fff;font-weight:bold}
+  .red{background:#c63b3b;color:#fff;font-weight:bold}
+  /* Statuts */
+  .colors{display:flex;gap:10px;margin:10px 0}
+  .dot{width:34px;height:34px;border-radius:50%;padding:0;border:3px solid transparent}
+  .dot.sel{border-color:#222}
+  .st{padding:18px 16px;color:#fff;border-bottom:2px solid #f0f2f5}
+  .st .who{font-size:14px;font-weight:bold;opacity:.9}
+  .st .stxt{font-size:20px;margin:10px 0;white-space:pre-wrap;word-wrap:break-word}
+  .st .meta{font-size:12px;opacity:.9;display:flex;justify-content:space-between;align-items:center}
+  .st .del{color:#fff;text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div id="installBar" class="hidden">
+  <span>Installer Tchatche</span>
+  <button class="primary" id="btnInstall">Installer</button>
+</div>
+
+<div id="login" class="box">
+  <h2>Tchatche</h2>
+  <p>Écris à tes proches, simplement</p>
+  <input id="email" type="email" placeholder="E-mail"><br><br>
+  <input id="pass" type="password" placeholder="Mot de passe"><br><br>
+  <div class="row">
+    <button class="primary" id="btnLogin">Se connecter</button>
+    <button id="btnSignup">Créer un compte</button>
+  </div>
+  <div id="loginErr" class="err"></div>
+</div>
+
+<div id="pseudoScreen" class="box hidden">
+  <h2>Choisis ton pseudo</h2>
+  <p>C'est le nom que tes proches verront et chercheront. Sans espace, de 3 à 20 caractères (lettres, chiffres ou _).</p>
+  <input id="pseudoIn" type="text" placeholder="ex : souleyman" autocapitalize="none" autocorrect="off" maxlength="20"><br><br>
+  <div class="row">
+    <button class="primary" id="btnPseudo">Valider</button>
+    <button id="btnPseudoOut">Quitter</button>
+  </div>
+  <div id="pseudoErr" class="err"></div>
+</div>
+
+<div id="home" class="hidden">
+  <header>
+    <div><h1>Mes messages</h1><small id="me"></small></div>
+    <button class="link" id="btnOut">Quitter</button>
+  </header>
+  <div class="box row">
+    <input id="proche" type="text" placeholder="Pseudo de ton proche" autocapitalize="none" autocorrect="off">
+    <button class="primary" id="btnWrite">Écrire</button>
+  </div>
+  <div id="homeErr" class="err"></div>
+  <div id="chatList"></div>
+</div>
+
+<div id="calls" class="hidden">
+  <header>
+    <div><h1>Appels</h1></div>
+  </header>
+  <div id="callList"></div>
+</div>
+
+<div id="statuts" class="hidden">
+  <header>
+    <div><h1>Statuts</h1><small>Visibles pendant 24 h</small></div>
+  </header>
+  <div class="box">
+    <textarea id="stTxt" maxlength="200" rows="3" placeholder="Écris ton statut..."></textarea>
+    <div class="colors" id="stColors"></div>
+    <select id="stAud">
+      <option value="chats">Mes discussions</option>
+      <option value="all">Tout le monde</option>
+    </select>
+    <button class="primary" id="btnStatut" style="margin-top:8px">Publier le statut</button>
+    <div id="stErr" class="err" style="padding:8px 0"></div>
+  </div>
+  <div id="stList"></div>
+</div>
+
+<div id="posts" class="hidden">
+  <header>
+    <div><h1>Publications</h1></div>
+  </header>
+  <div class="box">
+    <textarea id="postTxt" maxlength="500" rows="3" placeholder="Écris une publication..."></textarea>
+    <button class="primary" id="btnPublish" style="margin-top:8px">Publier</button>
+    <div id="postErr" class="err" style="padding:8px 0"></div>
+  </div>
+  <div id="postList"></div>
+</div>
+
+<div id="chat" class="hidden">
+  <header>
+    <button class="link" id="btnBack">← Retour</button>
+    <div id="chatTitle" class="ctitle"></div>
+    <div class="hbtns">
+      <button class="link" id="btnCall">📞</button>
+      <button class="link" id="btnVideo">📹</button>
+    </div>
+  </header>
+  <div id="msgs"></div>
+  <div class="box row">
+    <input id="txt" type="text" placeholder="Ton message">
+    <button class="primary" id="btnSend">Envoyer</button>
+  </div>
+</div>
+
+<div id="nav" class="hidden">
+  <button class="tab" id="tabHome">💬<span>Discussions</span></button>
+  <button class="tab" id="tabStatuts">🟢<span>Statuts</span></button>
+  <button class="tab" id="tabCalls">📞<span>Appels</span></button>
+  <button class="tab" id="tabPosts">📰<span>Publications</span></button>
+</div>
+
+<div id="callScreen" class="hidden">
+  <video id="remoteVideo" class="hidden" autoplay playsinline></video>
+  <video id="localVideo" class="hidden" autoplay playsinline muted></video>
+  <h2 id="callName"></h2>
+  <div id="callStatus"></div>
+  <div class="row">
+    <button class="green hidden" id="btnAnswer">Répondre</button>
+    <button class="red" id="btnHang">Raccrocher</button>
+  </div>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, getDocs, onSnapshot, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA6jhZLez7R8vkO8kr8ZDK56_cA8bZiSXk",
+  authDomain: "tchatche-480f2.firebaseapp.com",
+  projectId: "tchatche-480f2",
+  storageBucket: "tchatche-480f2.firebasestorage.app",
+  messagingSenderId: "307957255636",
+  appId: "1:307957255636:web:cade6a0b56691aa9085a41"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+let user = null, unsubMsgs = null, unsubChats = null, unsubMissed = null, unsubPosts = null;
+let currentChatId = null;
+let msgItems = [], missedItems = [];
+let myPseudo = null;
+const nameCache = {};
+let callsByChat = {};
+
+/* ===== Noms (pseudos) ===== */
+async function nameOf(uid, fallback){
+  if (nameCache[uid]) return nameCache[uid];
+  try {
+    const s = await getDoc(doc(db, "users", uid));
+    if (s.exists()) {
+      const d = s.data();
+      if (d.pseudo) { nameCache[uid] = d.pseudo; return d.pseudo; }
+      if (d.email) return d.email;
+    }
+  } catch(e){}
+  return fallback || "Discussion";
+}
+
+/* ===== Installation ===== */
+let installEvent = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  installEvent = e;
+  $("installBar").classList.remove("hidden");
+});
+$("btnInstall").onclick = async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  try { await installEvent.userChoice; } catch(e){}
+  installEvent = null;
+  $("installBar").classList.add("hidden");
+};
+window.addEventListener("appinstalled", () => $("installBar").classList.add("hidden"));
+
+function show(name){
+  ["login","pseudoScreen","home","calls","chat","posts","statuts"].forEach(n => $(n).classList.toggle("hidden", n !== name));
+  const tabbed = ["home","calls","posts","statuts"].includes(name);
+  $("nav").classList.toggle("hidden", !tabbed);
+  $("tabHome").classList.toggle("active", name === "home");
+  $("tabStatuts").classList.toggle("active", name === "statuts");
+  $("tabCalls").classList.toggle("active", name === "calls");
+  $("tabPosts").classList.toggle("active", name === "posts");
+  if (name !== "statuts") stopStatuts();
+}
+
+function formatDate(ts){
+  const d = ts && ts.toDate ? ts.toDate() : new Date();
+  return d.toLocaleString("fr-FR", {day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"});
+}
+
+function ms(ts){ return ts && ts.toMillis ? ts.toMillis() : Date.now(); }
+
+function dayLabel(ts){
+  const d = ts && ts.toDate ? ts.toDate() : new Date();
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return "Aujourd'hui";
+  const y = new Date(now.getTime() - 86400000);
+  if (d.toDateString() === y.toDateString()) return "Hier";
+  return d.toLocaleDateString("fr-FR", {day:"2-digit", month:"2-digit", year:"numeric"});
+}
+
+$("btnLogin").onclick = async () => {
+  $("loginErr").textContent = "";
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); }
+  catch(e){ $("loginErr").textContent = "Connexion impossible : " + e.code; }
+};
+
+$("btnSignup").onclick = async () => {
+  $("loginErr").textContent = "";
+  try { await createUserWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); }
+  catch(e){ $("loginErr").textContent = "Création impossible : " + e.code; }
+};
+
+$("btnOut").onclick = () => signOut(auth);
+$("btnPseudoOut").onclick = () => signOut(auth);
+
+/* ===== Onglets du bas ===== */
+function stopPosts(){ if (unsubPosts) { unsubPosts(); unsubPosts = null; } }
+$("tabHome").onclick = () => { stopPosts(); show("home"); };
+$("tabStatuts").onclick = () => { stopPosts(); show("statuts"); loadStatuts(); };
+$("tabCalls").onclick = () => { stopPosts(); show("calls"); renderCalls(); };
+$("tabPosts").onclick = () => { show("posts"); loadPosts(); };
+
+function enterHome(){
+  $("me").textContent = "@" + myPseudo;
+  show("home");
+  loadChats();
+  listenCalls();
+}
+
+onAuthStateChanged(auth, async u => {
+  if (unsubChats) { unsubChats(); unsubChats = null; }
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  if (unsubMissed) { unsubMissed(); unsubMissed = null; }
+  if (unsubPosts) { unsubPosts(); unsubPosts = null; }
+  stopStatuts();
+  stopListeningCalls();
+  user = u;
+  myPseudo = null;
+  if (!u) { show("login"); return; }
+  try { await setDoc(doc(db, "users", u.uid), { email: u.email.toLowerCase(), uid: u.uid }, { merge: true }); } catch(e){}
+  try {
+    const s = await getDoc(doc(db, "users", u.uid));
+    if (s.exists() && s.data().pseudo) myPseudo = s.data().pseudo;
+  } catch(e){}
+  if (!myPseudo) {
+    $("pseudoErr").textContent = "";
+    show("pseudoScreen");
+    return;
+  }
+  nameCache[u.uid] = myPseudo;
+  enterHome();
+});
+
+$("btnPseudo").onclick = async () => {
+  $("pseudoErr").textContent = "";
+  const p = $("pseudoIn").value.trim().toLowerCase().replace(/^@/, "");
+  if (!/^[a-z0-9_]{3,20}$/.test(p)) {
+    $("pseudoErr").textContent = "Entre 3 et 20 caractères : lettres, chiffres ou _ (sans espace).";
+    return;
+  }
+  try {
+    const r = await getDocs(query(collection(db, "users"), where("pseudo", "==", p)));
+    if (r.docs.some(d => d.id !== user.uid)) {
+      $("pseudoErr").textContent = "Ce pseudo est déjà pris. Essaie un autre.";
+      return;
+    }
+    await setDoc(doc(db, "users", user.uid), { pseudo: p }, { merge: true });
+    myPseudo = p;
+    nameCache[user.uid] = p;
+    enterHome();
+  } catch(e){ $("pseudoErr").textContent = "Erreur : " + (e.code || e.message); }
+};
+
+function loadChats(){
+  const q = query(collection(db, "chats"), where("participants", "array-contains", user.uid));
+  unsubChats = onSnapshot(q, snap => {
+    $("homeErr").textContent = "";
+    const list = $("chatList");
+    list.innerHTML = "";
+    snap.forEach(d => {
+      const data = d.data();
+      const myMail = user.email.toLowerCase();
+      const otherMail = (data.emails || []).find(e => e !== myMail);
+      const otherUid = (data.participants || []).find(p => p !== user.uid);
+      const div = document.createElement("div");
+      div.className = "item";
+      div.textContent = otherMail || "Discussion";
+      div.onclick = () => openChat(d.id, div.textContent);
+      list.appendChild(div);
+      if (otherUid) {
+        nameOf(otherUid, otherMail).then(n => { div.textContent = n; });
+      }
+    });
+  }, () => { $("homeErr").textContent = "Impossible de charger les discussions."; });
+}
+
+$("btnWrite").onclick = async () => {
+  $("homeErr").textContent = "";
+  const raw = $("proche").value.trim().toLowerCase().replace(/^@/, "");
+  if (!raw) return;
+  const byMail = raw.includes("@");
+  try {
+    const r = await getDocs(query(collection(db, "users"), where(byMail ? "email" : "pseudo", "==", raw)));
+    if (r.empty) { $("homeErr").textContent = "Personne ne s'appelle comme ça sur Tchatche."; return; }
+    const other = r.docs[0].data();
+    if (other.uid === user.uid) { $("homeErr").textContent = "C'est toi !"; return; }
+    const id = [user.uid, other.uid].sort().join("_");
+    await setDoc(doc(db, "chats", id), {
+      participants: [user.uid, other.uid],
+      emails: [user.email.toLowerCase(), other.email || raw]
+    }, { merge: true });
+    $("proche").value = "";
+    openChat(id, other.pseudo || other.email || raw);
+  } catch(e){ $("homeErr").textContent = "Erreur : " + e.code; }
+};
+
+/* ================= STATUTS ================= */
+
+const DAY = 86400000;
+const STCOLORS = ["#075E54", "#128C7E", "#1E88E5", "#8E24AA", "#E64A19", "#37474F"];
+let stColor = STCOLORS[0];
+let unsubStatuts = [];
+const stAll = new Map(), stViewers = new Map(), stMine = new Map();
+
+function buildColors(){
+  const box = $("stColors");
+  box.innerHTML = "";
+  STCOLORS.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "dot" + (c === stColor ? " sel" : "");
+    b.style.background = c;
+    b.onclick = () => { stColor = c; buildColors(); };
+    box.appendChild(b);
+  });
+}
+buildColors();
+
+function ago(t){
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return "À l'instant";
+  if (m < 60) return "Il y a " + m + " min";
+  return "Il y a " + Math.floor(m / 60) + " h";
+}
+
+function stopStatuts(){
+  unsubStatuts.forEach(f => f());
+  unsubStatuts = [];
+  stAll.clear();
+  stViewers.clear();
+  stMine.clear();
+}
+
+function cleanOwnOld(){
+  stMine.forEach(v => {
+    if (Date.now() - ms(v.data.createdAt) > DAY) {
+      deleteDoc(doc(db, "statuts", v.id)).catch(() => {});
+    }
+  });
+}
+
+function loadStatuts(){
+  stopStatuts();
+  $("stErr").textContent = "";
+  const col = collection(db, "statuts");
+  const listen = (q, store, mine) => onSnapshot(q, snap => {
+    store.clear();
+    snap.docs.forEach(d => store.set(d.id, { id: d.id, data: d.data() }));
+    if (mine) cleanOwnOld();
+    renderStatuts();
+  }, () => { $("stErr").textContent = "Impossible de charger les statuts."; });
+  unsubStatuts.push(listen(query(col, where("audience", "==", "all"), limit(40)), stAll, false));
+  unsubStatuts.push(listen(query(col, where("viewers", "array-contains", user.uid), limit(40)), stViewers, false));
+  unsubStatuts.push(listen(query(col, where("authorId", "==", user.uid), limit(40)), stMine, true));
+}
+
+function renderStatuts(){
+  const box = $("stList");
+  const merged = new Map();
+  [stAll, stViewers, stMine].forEach(m => m.forEach((v, k) => merged.set(k, v)));
+  const items = [...merged.values()]
+    .map(v => ({ id: v.id, d: v.data, time: ms(v.data.createdAt) }))
+    .filter(x => Date.now() - x.time < DAY)
+    .sort((a, b) => b.time - a.time);
+  box.innerHTML = "";
+  if (!items.length) {
+    box.className = "box";
+    box.textContent = "Aucun statut pour l'instant.";
+    return;
+  }
+  box.className = "";
+  items.forEach(x => {
+    const d = x.d;
+    const div = document.createElement("div");
+    div.className = "st";
+    div.style.background = d.color || STCOLORS[0];
+    const who = document.createElement("div");
+    who.className = "who";
+    who.textContent = d.authorEmail || "Anonyme";
+    if (d.authorId) nameOf(d.authorId, d.authorEmail).then(n => { who.textContent = n; });
+    const txt = document.createElement("div");
+    txt.className = "stxt";
+    txt.textContent = d.text;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const info = document.createElement("span");
+    info.textContent = ago(x.time) + " · " + (d.audience === "all" ? "Tout le monde" : "Mes discussions");
+    meta.appendChild(info);
+    if (d.authorId === user.uid) {
+      const del = document.createElement("button");
+      del.className = "del";
+      del.textContent = "Supprimer";
+      del.onclick = async () => {
+        try { await deleteDoc(doc(db, "statuts", x.id)); }
+        catch(e){ $("stErr").textContent = "Suppression impossible : " + (e.code || e.message); }
+      };
+      meta.appendChild(del);
+    }
+    div.appendChild(who);
+    div.appendChild(txt);
+    div.appendChild(meta);
+    box.appendChild(div);
+  });
+}
+
+$("btnStatut").onclick = async () => {
+  $("stErr").textContent = "";
+  const text = $("stTxt").value.trim();
+  if (!text) return;
+  const audience = $("stAud").value;
+  try {
+    const viewers = [];
+    if (audience === "chats") {
+      const r = await getDocs(query(collection(db, "chats"), where("participants", "array-contains", user.uid)));
+      r.forEach(c => (c.data().participants || []).forEach(p => {
+        if (p !== user.uid && !viewers.includes(p)) viewers.push(p);
+      }));
+    }
+    // L'identifiant est construit pour que les statuts les plus récents arrivent en premier.
+    const id = String(1e13 - Date.now()).padStart(14, "0") + "_" + user.uid.slice(0, 6);
+    await setDoc(doc(db, "statuts", id), {
+      text,
+      color: stColor,
+      audience,
+      viewers,
+      authorId: user.uid,
+      authorEmail: user.email.toLowerCase(),
+      createdAt: serverTimestamp()
+    });
+    $("stTxt").value = "";
+  } catch(e){ $("stErr").textContent = "Publication impossible : " + (e.code || e.message); }
+};
+
+/* ================= HISTORIQUE DES APPELS ================= */
+
+function renderCalls(){
+  const box = $("callList");
+  box.innerHTML = "";
+  const all = [];
+  Object.keys(callsByChat).forEach(chatId => {
+    callsByChat[chatId].forEach(c => all.push({ chatId, c, time: ms(c.createdAt) }));
+  });
+  all.sort((a, b) => b.time - a.time);
+  if (!all.length) {
+    box.className = "box";
+    box.textContent = "Aucun appel pour l'instant.";
+    return;
+  }
+  box.className = "";
+  all.slice(0, 50).forEach(it => {
+    const c = it.c;
+    const mine = c.callerId === user.uid;
+    const age = Date.now() - it.time;
+    const missed = c.status === "missed" || (c.status === "ringing" && age > 60000);
+    let label;
+    if (missed) label = mine ? "Sans réponse" : "Manqué";
+    else if (c.status === "declined" && mine) label = "Refusé";
+    else label = mine ? "Sortant" : "Entrant";
+    const otherUid = it.chatId.split("_").find(p => p !== user.uid);
+
+    const row = document.createElement("div");
+    row.className = "crow";
+    const av = document.createElement("div");
+    av.className = "av";
+    av.textContent = "?";
+    const mid = document.createElement("div");
+    mid.className = "cmid";
+    const nm = document.createElement("div");
+    nm.className = "cname" + (missed && !mine ? " missed" : "");
+    nm.textContent = "...";
+    const sub = document.createElement("div");
+    sub.className = "csub";
+    sub.textContent = (c.video ? "📹 " : "📞 ") + (mine ? "↗ " : "↙ ") + label;
+    mid.appendChild(nm);
+    mid.appendChild(sub);
+    const day = document.createElement("div");
+    day.className = "cday";
+    day.textContent = dayLabel(c.createdAt);
+    row.appendChild(av);
+    row.appendChild(mid);
+    row.appendChild(day);
+    row.onclick = () => openChat(it.chatId, nm.textContent);
+    box.appendChild(row);
+    nameOf(otherUid, c.callerEmail).then(n => {
+      nm.textContent = n;
+      av.textContent = (n || "?").charAt(0).toUpperCase();
+    });
+  });
+}
+
+/* ================= PUBLICATIONS ================= */
+
+function loadPosts(){
+  if (unsubPosts) unsubPosts();
+  const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(30));
+  unsubPosts = onSnapshot(q, snap => {
+    $("postErr").textContent = "";
+    const box = $("postList");
+    box.innerHTML = "";
+    if (snap.empty) { box.className = "box"; box.textContent = "Aucune publication pour l'instant."; return; }
+    box.className = "";
+    snap.forEach(d => {
+      const p = d.data();
+      const div = document.createElement("div");
+      div.className = "post";
+      const who = document.createElement("strong");
+      who.textContent = p.authorEmail || "Anonyme";
+      if (p.authorId) nameOf(p.authorId, p.authorEmail).then(n => { who.textContent = n; });
+      const txt = document.createElement("p");
+      txt.textContent = p.text;
+      const t = document.createElement("span");
+      t.className = "t";
+      t.textContent = formatDate(p.createdAt);
+      div.appendChild(who);
+      div.appendChild(txt);
+      div.appendChild(t);
+      if (p.authorId === user.uid) {
+        const del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "Supprimer";
+        del.onclick = async () => {
+          try { await deleteDoc(doc(db, "posts", d.id)); } catch(e){ $("postErr").textContent = "Suppression impossible : " + e.code; }
+        };
+        div.appendChild(del);
+      }
+      box.appendChild(div);
+    });
+  }, () => { $("postErr").textContent = "Impossible de charger les publications."; });
+}
+
+$("btnPublish").onclick = async () => {
+  $("postErr").textContent = "";
+  const text = $("postTxt").value.trim();
+  if (!text) return;
+  try {
+    await addDoc(collection(db, "posts"), {
+      text,
+      authorId: user.uid,
+      authorEmail: user.email.toLowerCase(),
+      createdAt: serverTimestamp()
+    });
+    $("postTxt").value = "";
+  } catch(e){ $("postErr").textContent = "Publication impossible : " + e.code; }
+};
+
+/* ================= DISCUSSIONS ================= */
+
+function renderChat(){
+  const box = $("msgs");
+  box.innerHTML = "";
+  const all = msgItems.concat(missedItems).sort((a, b) => a.time - b.time);
+  all.forEach(it => {
+    const div = document.createElement("div");
+    const span = document.createElement("span");
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = formatDate(it.ts);
+    if (it.kind === "call") {
+      div.className = "m call";
+      if (it.video) span.textContent = it.mine ? "📹 Appel vidéo sans réponse" : "📹 Appel vidéo manqué";
+      else span.textContent = it.mine ? "📞 Appel sans réponse" : "📞 Appel manqué";
+    } else {
+      div.className = "m" + (it.mine ? " me" : "");
+      span.textContent = it.text;
+    }
+    div.appendChild(span);
+    div.appendChild(t);
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function openChat(id, title){
+  stopPosts();
+  show("chat");
+  currentChatId = id;
+  $("chatTitle").textContent = title;
+  $("btnSend").dataset.id = id;
+  msgItems = [];
+  missedItems = [];
+  if (unsubMsgs) unsubMsgs();
+  if (unsubMissed) unsubMissed();
+  const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt", "desc"), limit(30));
+  unsubMsgs = onSnapshot(q, snap => {
+    msgItems = snap.docs.map(d => {
+      const m = d.data();
+      return { kind: "msg", text: m.text, mine: m.senderId === user.uid, ts: m.createdAt, time: ms(m.createdAt) };
+    });
+    renderChat();
+  });
+  const cq = query(collection(db, "chats", id, "calls"), where("status", "==", "missed"));
+  unsubMissed = onSnapshot(cq, snap => {
+    missedItems = snap.docs.map(d => {
+      const c = d.data();
+      return { kind: "call", mine: c.callerId === user.uid, video: !!c.video, ts: c.createdAt, time: ms(c.createdAt) };
+    }).sort((a, b) => b.time - a.time).slice(0, 20);
+    renderChat();
+  }, () => {});
+}
+
+$("btnBack").onclick = () => {
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  if (unsubMissed) { unsubMissed(); unsubMissed = null; }
+  currentChatId = null;
+  show("home");
+};
+
+async function send(){
+  const id = $("btnSend").dataset.id;
+  const text = $("txt").value.trim();
+  if (!text || !id) return;
+  $("txt").value = "";
+  try {
+    await addDoc(collection(db, "chats", id, "messages"), {
+      text, senderId: user.uid, createdAt: serverTimestamp()
+    });
+  } catch(e){ alert("Message non envoyé : " + e.code); }
+}
+$("btnSend").onclick = send;
+$("txt").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+
+/* ================= APPELS VOCAUX ET VIDÉO ================= */
+
+const rtcConfig = { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" }
+]};
+
+let pc = null, localStream = null, callRef = null;
+let unsubCall = null, unsubCandidates = null, unsubCallsIn = null;
+let incomingCallDoc = null;
+let callAnswered = false;
+let isVideo = false;
+
+function callStatus(text){ $("callStatus").textContent = text; }
+
+function showCallScreen(name, status, canAnswer, video){
+  $("callName").textContent = name;
+  callStatus(status);
+  $("btnAnswer").classList.toggle("hidden", !canAnswer);
+  $("callScreen").classList.toggle("video", !!video);
+  $("remoteVideo").classList.toggle("hidden", !video);
+  $("localVideo").classList.toggle("hidden", !video);
+  $("callScreen").classList.remove("hidden");
+}
+
+function cleanupCall(){
+  if (unsubCall) { unsubCall(); unsubCall = null; }
+  if (unsubCandidates) { unsubCandidates(); unsubCandidates = null; }
+  if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.close(); pc = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("remoteAudio").srcObject = null;
+  $("remoteVideo").srcObject = null;
+  $("localVideo").srcObject = null;
+  callRef = null;
+  incomingCallDoc = null;
+  callAnswered = false;
+  isVideo = false;
+  $("callScreen").classList.remove("video");
+  $("callScreen").classList.add("hidden");
+}
+
+async function setupPeer(role, video){
+  isVideo = !!video;
+  localStream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: video ? { facingMode: "user" } : false
+  });
+  if (video) {
+    $("localVideo").srcObject = localStream;
+    $("localVideo").play().catch(() => {});
+  }
+  pc = new RTCPeerConnection(rtcConfig);
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  pc.ontrack = e => {
+    if (isVideo) {
+      $("remoteVideo").srcObject = e.streams[0];
+      $("remoteVideo").play().catch(() => {});
+    } else {
+      $("remoteAudio").srcObject = e.streams[0];
+      $("remoteAudio").play().catch(() => {});
+    }
+  };
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      addDoc(collection(callRef, role + "Candidates"), e.candidate.toJSON()).catch(() => {});
+    }
+  };
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    if (pc.connectionState === "connected") callStatus("En communication");
+    if (pc.connectionState === "failed") callStatus("Connexion impossible");
+  };
+}
+
+function listenRemoteCandidates(otherRole){
+  unsubCandidates = onSnapshot(collection(callRef, otherRole + "Candidates"), snap => {
+    snap.docChanges().forEach(ch => {
+      if (ch.type === "added" && pc) {
+        pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
+      }
+    });
+  });
+}
+
+async function startCall(video){
+  if (!currentChatId || pc) return;
+  const title = $("chatTitle").textContent;
+  const otherUid = currentChatId.split("_").find(p => p !== user.uid);
+  callAnswered = false;
+  try {
+    showCallScreen(title, video ? "Appel vidéo en cours..." : "Appel en cours...", false, video);
+    callRef = doc(collection(db, "chats", currentChatId, "calls"));
+    await setupPeer("caller", video);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await setDoc(callRef, {
+      callerId: user.uid,
+      callerEmail: user.email.toLowerCase(),
+      calleeId: otherUid,
+      status: "ringing",
+      video: !!video,
+      offer: { type: offer.type, sdp: offer.sdp },
+      createdAt: serverTimestamp()
+    });
+    listenRemoteCandidates("callee");
+    unsubCall = onSnapshot(callRef, async snap => {
+      const data = snap.data();
+      if (!data) return;
+      if (data.answer) callAnswered = true;
+      if (data.answer && pc && !pc.currentRemoteDescription) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        callStatus("Connexion...");
+      }
+      if (data.status === "ended" || data.status === "declined") {
+        callStatus(data.status === "declined" ? "Appel refusé" : "Appel terminé");
+        setTimeout(cleanupCall, 1200);
+      }
+    });
+  } catch(e){
+    callStatus("Erreur : " + (e.name || e.code || e.message));
+    setTimeout(cleanupCall, 2500);
+  }
+}
+
+$("btnCall").onclick = () => startCall(false);
+$("btnVideo").onclick = () => startCall(true);
+
+function listenCalls(){
+  const q = query(collection(db, "chats"), where("participants", "array-contains", user.uid));
+  const callUnsubs = {};
+  unsubCallsIn = onSnapshot(q, snap => {
+    snap.docChanges().forEach(ch => {
+      if (ch.type === "added") {
+        const chatId = ch.doc.id;
+        const cq = query(collection(db, "chats", chatId, "calls"), where("calleeId", "==", user.uid), where("status", "==", "ringing"));
+        callUnsubs[chatId] = onSnapshot(cq, csnap => {
+          csnap.docChanges().forEach(c => {
+            if (c.type === "added" && !pc && !incomingCallDoc) {
+              const cd = c.doc.data();
+              const created = cd.createdAt;
+              const age = created && created.toDate ? Date.now() - created.toDate().getTime() : 0;
+              if (age > 60000) return;
+              incomingCallDoc = c.doc;
+              callRef = c.doc.ref;
+              showCallScreen(cd.callerEmail || "Appel entrant", cd.video ? "Appel vidéo entrant..." : "Appel entrant...", true, cd.video);
+              if (cd.callerId) nameOf(cd.callerId, cd.callerEmail).then(n => {
+                if (incomingCallDoc) $("callName").textContent = n;
+              });
+              unsubCall = onSnapshot(callRef, s => {
+                const d = s.data();
+                if (d && (d.status === "ended" || d.status === "missed")) {
+                  callStatus(d.status === "missed" ? "Appel manqué" : "Appel terminé");
+                  setTimeout(cleanupCall, 1200);
+                }
+              });
+            }
+          });
+        }, () => {});
+        callUnsubs[chatId + "_all"] = onSnapshot(collection(db, "chats", chatId, "calls"), asnap => {
+          callsByChat[chatId] = asnap.docs.map(d => d.data());
+          if (!$("calls").classList.contains("hidden")) renderCalls();
+        }, () => {});
+      }
+    });
+  }, () => {});
+  unsubCallsIn.extra = callUnsubs;
+}
+
+function stopListeningCalls(){
+  if (unsubCallsIn) {
+    if (unsubCallsIn.extra) Object.values(unsubCallsIn.extra).forEach(f => f());
+    unsubCallsIn();
+    unsubCallsIn = null;
+  }
+  callsByChat = {};
+  cleanupCall();
+}
+
+$("btnAnswer").onclick = async () => {
+  if (!incomingCallDoc) return;
+  try {
+    $("btnAnswer").classList.add("hidden");
+    callStatus("Connexion...");
+    const data = incomingCallDoc.data();
+    await setupPeer("callee", !!data.video);
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    listenRemoteCandidates("caller");
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await updateDoc(callRef, {
+      answer: { type: answer.type, sdp: answer.sdp },
+      status: "active"
+    });
+  } catch(e){
+    callStatus("Erreur : " + (e.name || e.code || e.message));
+    setTimeout(cleanupCall, 2500);
+  }
+};
+
+$("btnHang").onclick = async () => {
+  try {
+    if (callRef) {
+      const wasRinging = incomingCallDoc && !pc;
+      let status = "ended";
+      if (wasRinging) status = "declined";
+      else if (!incomingCallDoc && !callAnswered) status = "missed";
+      await updateDoc(callRef, { status });
+    }
+  } catch(e){}
+  cleanupCall();
+};
+</script>
+</body>
+</html>
