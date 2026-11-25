@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tchatche</title>
+<meta name="theme-color" content="#075E54">
+<link rel="manifest" href="manifest.json">
+</head>
+<body style="font-family:Arial,sans-serif;text-align:center;padding-top:30vh;color:#075E54">
+<h2>Tchatche</h2>
+<p>Chargement...</p>
+<script>
+fetch("index34.html")
+  .then(function(r){ return r.text(); })
+  .then(function(h){
+    var i = h.lastIndexOf("</body>");
+    h = h.slice(0, i) + '<script src="langues.js"><\/script>' + h.slice(i);
+    document.open();
+    document.write(h);
+    document.close();
+  })
+  .catch(function(){ location.href = "index34.html"; });
+</script>
+</body>
+</html>
