@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tchatche</title>
+<meta name="theme-color" content="#075E54">
+<link rel="manifest" href="manifest.json">
+</head>
+<body style="font-family:Arial,sans-serif;text-align:center;padding-top:30vh;color:#075E54">
+<h2>Tchatche</h2>
+<p>Chargement...</p>
+<script>
+var P = [];
+
+/* 1. Garder l'identifiant de chaque appel */
+P.push([
+`callsByChat[chatId] = asnap.docs.map(d => d.data());`,
+`callsByChat[chatId] = asnap.docs.map(d => Object.assign({ _id: d.id }, d.data()));`
+]);
+
+/* 2. Ne pas afficher les appels supprimés */
+P.push([
+`callsByChat[chatId].forEach(c => all.push({ chatId, c, time: ms(c.createdAt) }));`,
+`callsByChat[chatId].forEach(c => { if (!hiddenCalls().includes(c._id)) all.push({ chatId, c, time: ms(c.createdAt) }); });`
+]);
+
+/* 3. Fonctions pour cacher un appel (gardé sur le téléphone) */
+P.push([
+`function renderCalls(){`,
+`function hcKey(){ return "tch_hc_" + (user ? user.uid : "x"); }
+function hiddenCalls(){ try { return JSON.parse(localStorage.getItem(hcKey()) || "[]"); } catch(e){ return []; } }
+function hideCall(id){
+  try {
+    const a = hiddenCalls();
+    if (id && !a.includes(id)) { a.push(id); localStorage.setItem(hcKey(), JSON.stringify(a.slice(-500))); }
+  } catch(e){}
+  renderCalls();
+}
+function renderCalls(){`
+]);
+
+/* 4. Glisser vers la gauche : corbeille rouge */
+P.push([
+`row.onclick = () => openChat(it.chatId, nameCache[otherUid] || "Discussion");`,
+`const goChat = () => openChat(it.chatId, nameCache[otherUid] || "Discussion");
+    let x0 = 0, y0 = 0, dx = 0, isOpen = false, drag = false;
+    const W = 84;
+    const dl = document.createElement("button");
+    dl.textContent = "🗑";
+    dl.style.cssText = "position:absolute;top:0;bottom:0;right:0;width:84px;border-radius:0;background:#e5545c;color:#fff;font-size:24px;padding:0;transform:translateX(100%)";
+    row.style.position = "relative";
+    row.style.overflow = "hidden";
+    row.style.touchAction = "pan-y";
+    row.appendChild(dl);
+    const mv = (px, anim) => {
+      const tr = anim ? "transform .15s" : "none";
+      Array.from(row.children).forEach(c => {
+        c.style.transition = tr;
+        c.style.transform = c === dl ? "translateX(" + (W + px) + "px)" : "translateX(" + px + "px)";
+      });
+    };
+    row.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; drag = false; }, { passive: true });
+    row.addEventListener("touchmove", e => {
+      const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
+      if (!drag) { if (Math.abs(ddx) > 10 && Math.abs(ddx) > Math.abs(ddy)) drag = true; else return; }
+      dx = Math.max(-W, Math.min(0, ddx + (isOpen ? -W : 0)));
+      mv(dx, false);
+    }, { passive: true });
+    row.addEventListener("touchend", () => {
+      if (!drag) return;
+      isOpen = dx < -W / 2;
+      mv(isOpen ? -W : 0, true);
+      setTimeout(() => { drag = false; }, 80);
+    });
+    dl.onclick = e => { e.stopPropagation(); hideCall(it.c._id); };
+    row.onclick = () => {
+      if (drag) return;
+      if (isOpen) { isOpen = false; mv(0, true); return; }
+      goChat();
+    };`
+]);
+
+fetch("index34.html")
+  .then(function(r){ return r.text(); })
+  .then(function(h){
+    P.forEach(function(p){
+      if (h.indexOf(p[0]) < 0) { console.warn("Introuvable :", p[0].slice(0, 40)); return; }
+      h = h.replace(p[0], function(){ return p[1]; });
+    });
+    var i = h.lastIndexOf("</body>");
+    h = h.slice(0, i) + '<script src="langues.js"><\/script>' + h.slice(i);
+    document.open();
+    document.write(h);
+    document.close();
+  })
+  .catch(function(){ location.href = "index34.html"; });
+</script>
+</body>
+</html>
