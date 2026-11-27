@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tchatche</title>
+<meta name="theme-color" content="#075E54">
+<link rel="manifest" href="manifest.json">
+</head>
+<body style="font-family:Arial,sans-serif;text-align:center;padding-top:30vh;color:#075E54">
+<h2>Tchatche</h2>
+<p>Chargement...</p>
+<script>
+var P = [];
+
+/* ===== Appels : identifiant + filtre des appels supprimés ===== */
+P.push([
+`callsByChat[chatId] = asnap.docs.map(d => d.data());`,
+`callsByChat[chatId] = asnap.docs.map(d => Object.assign({ _id: d.id }, d.data()));`
+]);
+P.push([
+`callsByChat[chatId].forEach(c => all.push({ chatId, c, time: ms(c.createdAt) }));`,
+`callsByChat[chatId].forEach(c => { if (!hiddenCalls().includes(c._id)) all.push({ chatId, c, time: ms(c.createdAt) }); });`
+]);
+
+/* ===== Glisser : gauche = archiver / supprimer, droite = épingler ===== */
+P.push([
+`function renderCalls(){`,
+`function swipeRow(row, onDel, onTap, onPin, pinned, onArch, archLabel){
+  let x0 = 0, y0 = 0, dx = 0, pos = 0, drag = false;
+  const W = 84;
+  const R = ((onDel ? 1 : 0) + (onArch ? 1 : 0)) * W;
+  row.style.position = "relative";
+  row.style.overflow = "hidden";
+  row.style.touchAction = "pan-y";
+  const mkBtn = (parent, bg, icon, label) => {
+    const b = document.createElement("button");
+    b.style.cssText = "flex:1;border-radius:0;background:" + bg + ";color:#fff;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px";
+    const i = document.createElement("span");
+    i.textContent = icon;
+    i.style.fontSize = "22px";
+    b.appendChild(i);
+    if (label) {
+      const t = document.createElement("span");
+      t.textContent = label;
+      t.style.fontSize = "11px";
+      b.appendChild(t);
+    }
+    parent.appendChild(b);
+    return b;
+  };
+  const mkBox = (side, w) => {
+    const bx = document.createElement("div");
+    bx.style.cssText = "position:absolute;top:0;bottom:0;" + side + ":0;width:" + w + "px;display:flex;transform:translateX(" + (side === "right" ? "100%" : "-100%") + ")";
+    row.appendChild(bx);
+    return bx;
+  };
+  if (pinned) {
+    const m = document.createElement("span");
+    m.textContent = "📌";
+    m.style.cssText = "position:absolute;left:46px;bottom:6px;font-size:13px";
+    row.appendChild(m);
+  }
+  const rbox = R ? mkBox("right", R) : null;
+  const ab = onArch ? mkBtn(rbox, "#667781", "📦", archLabel || "Archiver") : null;
+  const dl = onDel ? mkBtn(rbox, "#e5545c", "🗑", "Supprimer") : null;
+  const lbox = onPin ? mkBox("left", W) : null;
+  const pl = onPin ? mkBtn(lbox, "#128C7E", "📌", pinned ? "Désépingler" : "Épingler") : null;
+  const mv = (px, anim) => {
+    const tr = anim ? "transform .15s" : "none";
+    Array.from(row.children).forEach(c => {
+      c.style.transition = tr;
+      if (c === rbox) c.style.transform = "translateX(" + (R + px) + "px)";
+      else if (c === lbox) c.style.transform = "translateX(" + (px - W) + "px)";
+      else c.style.transform = "translateX(" + px + "px)";
+    });
+  };
+  const close = () => { pos = 0; mv(0, true); };
+  row.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; drag = false; }, { passive: true });
+  row.addEventListener("touchmove", e => {
+    const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
+    if (!drag) { if (Math.abs(ddx) > 10 && Math.abs(ddx) > Math.abs(ddy)) drag = true; else return; }
+    dx = Math.max(-R, Math.min(onPin ? W : 0, ddx + pos));
+    mv(dx, false);
+  }, { passive: true });
+  row.addEventListener("touchend", () => {
+    if (!drag) return;
+    pos = (dx < -R / 2) ? -R : (dx > W / 2 ? W : 0);
+    mv(pos, true);
+    setTimeout(() => { drag = false; }, 80);
+  });
+  if (ab) ab.onclick = e => { e.stopPropagation(); onArch(close); };
+  if (dl) dl.onclick = e => { e.stopPropagation(); onDel(close); };
+  if (pl) pl.onclick = e => { e.stopPropagation(); onPin(close); };
+  row.onclick = () => {
+    if (drag) return;
+    if (pos !== 0) { close(); return; }
+    onTap();
+  };
+}
+function hcKey(){ return "tch_hc_" + (user ? user.uid : "x"); }
+function hiddenCalls(){ try { return JSON.parse(localStorage.getItem(hcKey()) || "[]"); } catch(e){ return []; } }
+function hideCall(id){
+  try {
+    const a = hiddenCalls();
+    if (id && !a.includes(id)) { a.push(id); localStorage.setItem(hcKey(), JSON.stringify(a.slice(-500))); }
+  } catch(e){}
+  renderCalls();
+}
+function renderCalls(){`
+]);
+P.push([
+`row.onclick = () => openChat(it.chatId, nameCache[otherUid] || "Discussion");`,
+`swipeRow(row, () => hideCall(it.c._id), () => openChat(it.chatId, nameCache[otherUid] || "Discussion"));`
+]);
+
+/* ===== Discussions : supprimer, épingler, archiver, rechercher ===== */
+P.push([
+`function renderChatList(){`,
+`let gq = "";
+let searchMap = {};
+let archMode = false;
+function ccKey(){ return "tch_cc_" + (user ? user.uid : "x"); }
+function clearedMap(){ try { return JSON.parse(localStorage.getItem(ccKey()) || "{}"); } catch(e){ return {}; } }
+function clearedAt(id){ return clearedMap()[id] || 0; }
+function clearChat(id){
+  try {
+    const m = clearedMap();
+    const last = lastMap[id];
+    m[id] = Math.max(Date.now(), last ? ms(last.createdAt) : 0);
+    localStorage.setItem(ccKey(), JSON.stringify(m));
+  } catch(e){}
+  renderChatList();
+}
+function pcKey(){ return "tch_pc_" + (user ? user.uid : "x"); }
+function pinnedList(){ try { return JSON.parse(localStorage.getItem(pcKey()) || "[]"); } catch(e){ return []; } }
+function isPinned(id){ return pinnedList().includes(id); }
+function togglePin(id){
+  try {
+    const a = pinnedList();
+    const i = a.indexOf(id);
+    if (i >= 0) a.splice(i, 1);
+    else {
+      if (a.length >= 3) { alert("Tu peux épingler 3 discussions au maximum."); return; }
+      a.push(id);
+    }
+    localStorage.setItem(pcKey(), JSON.stringify(a));
+  } catch(e){}
+  renderChatList();
+}
+function arKey(){ return "tch_ar_" + (user ? user.uid : "x"); }
+function archMap(){ try { return JSON.parse(localStorage.getItem(arKey()) || "{}"); } catch(e){ return {}; } }
+function isArchHidden(r){
+  const t = archMap()[r.id];
+  return !!t && (!r.last || ms(r.last.createdAt) <= t);
+}
+function toggleArchive(id){
+  try {
+    const m = archMap();
+    if (m[id]) delete m[id];
+    else {
+      const last = lastMap[id] || groupLast[id];
+      m[id] = Math.max(Date.now(), last ? ms(last.createdAt) : 0);
+    }
+    localStorage.setItem(arKey(), JSON.stringify(m));
+  } catch(e){}
+  renderChatList();
+}
+function renderSearchResults(){
+  if (!user) return;
+  const list = $("chatList");
+  list.innerHTML = "";
+  const q = gq;
+  ensureNames(Object.keys(chatDocs).map(id => chatDocs[id].otherUid), renderChatList);
+  const hits = [];
+  Object.keys(chatDocs).forEach(id => {
+    if (isLocked(id)) return;
+    const c = chatDocs[id];
+    if (isRequestForMe(c)) return;
+    const name = (c.otherUid && nameCache[c.otherUid]) || "";
+    const msgs = (searchMap[id] || []).filter(m => m.text && m.time > clearedAt(id) && m.text.toLowerCase().includes(q));
+    if (name.toLowerCase().includes(q) || msgs.length) hits.push({ kind: "chat", id, name, msg: msgs[0] || null, time: msgs.length ? msgs[0].time : 0 });
+  });
+  Object.keys(groupDocs).forEach(id => {
+    const g = groupDocs[id];
+    const msgs = (searchMap[id] || []).filter(m => m.text && m.text.toLowerCase().includes(q));
+    if ((g.name || "").toLowerCase().includes(q) || msgs.length) hits.push({ kind: "group", id, name: g.name || "", msg: msgs[0] || null, time: msgs.length ? msgs[0].time : 0 });
+  });
+  hits.sort((a, b) => b.time - a.time);
+  if (!hits.length) {
+    const empty = document.createElement("div");
+    empty.className = "box";
+    empty.textContent = "Aucun résultat";
+    list.appendChild(empty);
+    return;
+  }
+  hits.forEach(h => {
+    const row = document.createElement("div");
+    row.className = "crow";
+    const av = document.createElement("div");
+    av.className = "av" + (h.kind === "group" ? " grp" : "");
+    av.textContent = h.kind === "group" ? "👥" : (h.name || "?").charAt(0).toUpperCase();
+    const mid = document.createElement("div");
+    mid.className = "cmid";
+    const nm = document.createElement("div");
+    nm.className = "cname";
+    nm.textContent = h.name || "Discussion";
+    const sub = document.createElement("div");
+    sub.className = "csub";
+    sub.textContent = h.msg ? h.msg.text.slice(0, 80) : "";
+    mid.appendChild(nm);
+    mid.appendChild(sub);
+    row.appendChild(av);
+    row.appendChild(mid);
+    row.onclick = () => { if (h.kind === "group") openGroup(h.id, h.name); else openChat(h.id, h.name || "Discussion"); };
+    list.appendChild(row);
+  });
+}
+function renderChatList(){
+  if (gq) { renderSearchResults(); return; }`
+]);
+P.push([
+`lastMap[chatId] = live.length ? live[0].data() : null;`,
+`lastMap[chatId] = live.length ? live[0].data() : null;
+          searchMap[chatId] = live.map(x => { const d = x.data(); return { text: d.deleted ? "" : (d.text || ""), time: ms(d.createdAt) }; });`
+]);
+P.push([
+`groupLast[gid] = s2.empty ? null : s2.docs[0].data();`,
+`groupLast[gid] = s2.empty ? null : s2.docs[0].data();
+          searchMap[gid] = s2.docs.map(x => { const d = x.data(); return { text: d.deleted ? "" : (d.text || ""), time: ms(d.createdAt) }; });`
+]);
+P.push([
+`function stopChatListeners(){`,
+`function stopChatListeners(){
+  searchMap = {};
+  archMode = false;`
+]);
+P.push([
+`<div id="homeErr" class="err"></div>`,
+`<div class="box" style="padding-top:0"><input id="gSearch" type="text" placeholder="Rechercher une discussion ou un message"></div>
+  <div id="homeErr" class="err"></div>`
+]);
+P.push([
+`rows.sort((a, b) => (isReq(b) ? 1 : 0) - (isReq(a) ? 1 : 0) || b.time - a.time);`,
+`rows.sort((a, b) => (isReq(b) ? 1 : 0) - (isReq(a) ? 1 : 0) || (isPinned(b.id) ? 1 : 0) - (isPinned(a.id) ? 1 : 0) || b.time - a.time);`
+]);
+P.push([
+`const shownRows = rows.filter(r => lockedMode ? lockedRows.includes(r) : !lockedRows.includes(r));`,
+`const archRows = rows.filter(r => !lockedRows.includes(r) && isArchHidden(r));
+  if (archMode && !archRows.length) archMode = false;
+  const shownRows = rows
+    .filter(r => lockedMode ? lockedRows.includes(r) : !lockedRows.includes(r))
+    .filter(r => r.kind !== "chat" || !(clearedAt(r.id) && (!r.last || ms(r.last.createdAt) <= clearedAt(r.id))))
+    .filter(r => lockedMode ? true : (archMode ? isArchHidden(r) : !isArchHidden(r)));`
+]);
+P.push([
+`shownRows.forEach(r => {`,
+`if (!lockedMode && archMode) {
+    list.appendChild(makeSpecialRow("←", "Retour aux discussions", "Discussions archivées", () => {
+      archMode = false;
+      renderChatList();
+    }));
+  } else if (!lockedMode && archRows.length) {
+    list.appendChild(makeSpecialRow("📦", "Discussions archivées", archRows.length + (archRows.length > 1 ? " discussions" : " discussion"), () => {
+      archMode = true;
+      renderChatList();
+    }));
+  }
+  shownRows.forEach(r => {`
+]);
+P.push([
+`row.onclick = () => openChat(r.id, nm.textContent);`,
+`swipeRow(row, close => {
+      if (confirm("Supprimer cette discussion ? Les anciens messages disparaîtront de ton téléphone seulement.")) clearChat(r.id);
+      else close();
+    }, () => openChat(r.id, nm.textContent), () => togglePin(r.id), isPinned(r.id), () => toggleArchive(r.id), archMode ? "Désarchiver" : "Archiver");`
+]);
+P.push([
+`row.onclick = () => openGroup(r.id, r.g.name);`,
+`swipeRow(row, null, () => openGroup(r.id, r.g.name), () => togglePin(r.id), isPinned(r.id), () => toggleArchive(r.id), archMode ? "Désarchiver" : "Archiver");`
+]);
+P.push([
+`let all = msgItems.filter(i => !isExp(i)).concat(missedItems).sort((a, b) => a.time - b.time);`,
+`const clr = clearedAt(currentChatId);
+  let all = msgItems.filter(i => !isExp(i) && i.time > clr).concat(missedItems.filter(i => i.time > clr)).sort((a, b) => a.time - b.time);`
+]);
+
+/* ===== Onglet Vous (avec mode économie de données) ===== */
+P.push([
+`<button class="tab" id="tabPosts">📰<span>Publications</span></button>`,
+`<button class="tab" id="tabPosts">📰<span>Publications</span></button>
+  <button class="tab" id="tabVous">👤<span>Vous</span></button>`
+]);
+P.push([
+`<div id="chat" class="hidden">`,
+`<div id="vous" class="hidden" style="padding-bottom:78px">
+  <header><div><h1>Vous</h1></div></header>
+  <div class="ci-top">
+    <div class="av big" id="vouAv"></div>
+    <div class="ciname" id="vouName"></div>
+    <div class="csub" id="vouAt"></div>
+  </div>
+  <div class="setgrp">
+    <div class="setrow" id="rowSaver"><span>📉 Mode économie de données</span><b id="saverVal">Désactivé</b></div>
+  </div>
+  <div class="sethint">Économise des données : actualités sur demande, pas de « en ligne », pas d'appels vidéo.</div>
+  <div class="setgrp">
+    <div class="setrow danger" id="rowSignOut"><span>🚪 Se déconnecter</span></div>
+  </div>
+</div>
+
+<div id="chat" class="hidden">`
+]);
+P.push([
+`["splash","login","pseudoScreen","home","calls","chat","posts","statuts","news"]`,
+`["splash","login","pseudoScreen","home","calls","chat","posts","statuts","news","vous"]`
+]);
+P.push([
+`const tabbed = ["home","calls","posts","statuts","news"].includes(name);`,
+`const tabbed = ["home","calls","posts","statuts","news","vous"].includes(name);`
+]);
+P.push([
+`$("tabPosts").classList.toggle("active", name === "posts");`,
+`$("tabPosts").classList.toggle("active", name === "posts");
+  $("tabVous").classList.toggle("active", name === "vous");`
+]);
+P.push([
+`$("tabPosts").onclick = () => { show("posts"); loadPosts(); };`,
+`$("tabPosts").onclick = () => { show("posts"); loadPosts(); };
+$("gSearch").oninput = e => { gq = e.target.value.trim().toLowerCase(); renderChatList(); };
+function saver(){ try { return localStorage.getItem("tch_saver_" + (user ? user.uid : "x")) === "1"; } catch(e){ return false; } }
+function renderVous(){
+  const n = myPseudo || "?";
+  $("vouAv").textContent = n.charAt(0).toUpperCase();
+  $("vouName").textContent = n;
+  $("vouAt").textContent = "@" + n;
+  $("saverVal").textContent = saver() ? "Activé" : "Désactivé";
+}
+$("tabVous").onclick = () => { stopPosts(); show("vous"); renderVous(); };
+$("rowSaver").onclick = () => {
+  try {
+    const k = "tch_saver_" + (user ? user.uid : "x");
+    if (saver()) localStorage.removeItem(k); else localStorage.setItem(k, "1");
+  } catch(e){}
+  location.reload();
+};
+$("rowSignOut").onclick = () => { if (confirm("Te déconnecter ?")) signOut(auth); };`
+]);
+
+/* ===== Mode économie de données : ce qui change ===== */
+P.push([
+`function startPresence(){`,
+`function startPresence(){
+  if (saver()) return;`
+]);
+P.push([
+`unsubPresence = onSnapshot(doc(db, "presence", otherUid), s => {`,
+`unsubPresence = saver() ? null : onSnapshot(doc(db, "presence", otherUid), s => {`
+]);
+P.push([
+`if (cache && !force && Date.now() - cache.time < 15 * 60000) {`,
+`if (saver() && !force) {
+    $("nwErr").textContent = "Mode économie de données : appuie sur ↻ pour charger les actualités.";
+    return;
+  }
+  if (cache && !force && Date.now() - cache.time < 15 * 60000) {`
+]);
+P.push([
+`async function startCall(video){`,
+`async function startCall(video){
+  if (video && saver()) { alert("Appel vidéo désactivé en mode économie de données."); return; }`
+]);
+
+/* ===== Réactions emoji sur les messages ===== */
+P.push([
+`exp: m.exp || 0,`,
+`exp: m.exp || 0, reactions: m.reactions || {},`
+]);
+P.push([
+`exp: 0,`,
+`exp: 0, reactions: m.reactions || {},`
+]);
+P.push([
+`<button class="menuBtn" id="btnMsgReply">↩ Répondre</button>`,
+`<div id="reactRow" style="display:flex;justify-content:space-around;padding:10px 4px;border-bottom:1px solid #eee"></div>
+    <button class="menuBtn" id="btnMsgReply">↩ Répondre</button>`
+]);
+P.push([
+`function openMsgMenu(it){`,
+`function buildReactRow(it){
+  const row = $("reactRow");
+  row.innerHTML = "";
+  row.classList.toggle("hidden", !(chatState.canSend && chatState.open));
+  const mine = (it.reactions || {})[user.uid] || "";
+  ["👍", "❤️", "😂", "😮", "😢", "🙏"].forEach(e => {
+    const b = document.createElement("button");
+    b.textContent = e;
+    b.style.cssText = "background:" + (mine === e ? "#d9f2e6" : "none") + ";font-size:28px;padding:6px 9px;border-radius:50%";
+    b.onclick = () => { closeMsgMenu(); setReaction(it, mine === e ? "" : e); };
+    row.appendChild(b);
+  });
+}
+async function setReaction(it, emoji){
+  if (!it || !it.id || !currentChatId) return;
+  try {
+    await updateDoc(doc(msgCol(currentKind, currentChatId), it.id), { ["reactions." + user.uid]: emoji });
+  } catch(e){ alert("Réaction impossible : " + (e.code || e.message)); }
+}
+function addReactionChips(box){
+  Array.from(box.children).forEach(div => {
+    const it = div._it;
+    if (!it || !it.reactions) return;
+    const list = Object.keys(it.reactions).map(u => it.reactions[u]).filter(Boolean);
+    if (!list.length) return;
+    const counts = {};
+    list.forEach(e => { counts[e] = (counts[e] || 0) + 1; });
+    const chip = document.createElement("span");
+    chip.style.cssText = "display:inline-block;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:1px 7px;font-size:13px;margin-top:4px;box-shadow:0 1px 1px rgba(0,0,0,.1)";
+    chip.textContent = Object.keys(counts).map(e => e + (counts[e] > 1 ? " " + counts[e] : "")).join("  ");
+    div.insertBefore(chip, div.querySelector(".t"));
+  });
+}
+function openMsgMenu(it){
+  buildReactRow(it);`
+]);
+P.push([
+`div.onclick = () => openMsgMenu(it);`,
+`div._it = it;
+      div.onclick = () => openMsgMenu(it);`
+]);
+P.push([
+`box.scrollTop = box.scrollHeight;`,
+`addReactionChips(box);
+  box.scrollTop = box.scrollHeight;`
+]);
+
+/* ===== Traductions des nouveaux textes ===== */
+var EXTRA = [
+"Vous|You|أنت|我|आप",
+"Te déconnecter ?|Log out?|هل تريد تسجيل الخروج؟|要退出登录吗？|क्या आप लॉग आउट करना चाहते हैं?",
+"🚪 Se déconnecter|🚪 Log out|🚪 تسجيل الخروج|🚪 退出登录|🚪 लॉग आउट करें",
+"Supprimer cette discussion ? Les anciens messages disparaîtront de ton téléphone seulement.|Delete this chat? Old messages will disappear from your phone only.|حذف هذه المحادثة؟ ستختفي الرسائل القديمة من هاتفك فقط.|删除此聊天？旧消息只会从你的手机中消失。|यह चैट हटाएं? पुराने संदेश केवल आपके फ़ोन से हटेंगे।",
+"📉 Mode économie de données|📉 Data saver mode|📉 وضع توفير البيانات|📉 流量节省模式|📉 डेटा बचत मोड",
+"Activé|On|مفعّل|已开启|चालू",
+"Désactivé|Off|معطّل|已关闭|बंद",
+"Économise des données : actualités sur demande, pas de « en ligne », pas d'appels vidéo.|Saves data: news on demand, no “online” status, no video calls.|يوفر البيانات: الأخبار عند الطلب، بدون «متصل»، وبدون مكالمات فيديو.|节省流量：新闻按需加载，不显示“在线”，无视频通话。|डेटा बचाता है: समाचार माँगने पर, ‘ऑनलाइन’ नहीं दिखता, वीडियो कॉल नहीं।",
+"Mode économie de données : appuie sur ↻ pour charger les actualités.|Data saver mode: tap ↻ to load the news.|وضع توفير البيانات: اضغط ↻ لتحميل الأخبار.|流量节省模式：点按 ↻ 加载新闻。|डेटा बचत मोड: समाचार लोड करने के लिए ↻ दबाएँ।",
+"Appel vidéo désactivé en mode économie de données.|Video calls are off in data saver mode.|مكالمات الفيديو معطّلة في وضع توفير البيانات.|流量节省模式下已关闭视频通话。|डेटा बचत मोड में वीडियो कॉल बंद हैं।",
+"Réaction impossible : {0}|Reaction failed: {0}|تعذر إضافة التفاعل: {0}|无法添加回应：{0}|प्रतिक्रिया नहीं जुड़ी: {0}",
+"Épingler|Pin|تثبيت|置顶|पिन करें",
+"Désépingler|Unpin|إلغاء التثبيت|取消置顶|अनपिन करें",
+"Tu peux épingler 3 discussions au maximum.|You can pin up to 3 chats.|يمكنك تثبيت 3 محادثات كحد أقصى.|最多可以置顶3个聊天。|आप अधिकतम 3 चैट पिन कर सकते हैं।",
+"Rechercher une discussion ou un message|Search a chat or message|ابحث عن محادثة أو رسالة|搜索聊天或消息|चैट या संदेश खोजें",
+"Aucun résultat|No results|لا نتائج|无结果|कोई परिणाम नहीं",
+"Archiver|Archive|أرشفة|归档|संग्रहित करें",
+"Désarchiver|Unarchive|إلغاء الأرشفة|取消归档|संग्रह से हटाएं",
+"Discussions archivées|Archived chats|المحادثات المؤرشفة|已归档的聊天|संग्रहित चैट",
+"{#0} discussion|{#0} chat|{#0} محادثة|{#0} 个聊天|{#0} चैट",
+"{#0} discussions|{#0} chats|{#0} محادثات|{#0} 个聊天|{#0} चैट"
+].join("\n");
+
+Promise.all([
+  fetch("index34.html").then(function(r){ return r.text(); }),
+  fetch("langues.js").then(function(r){ return r.text(); })
+]).then(function(res){
+  var h = res[0], lg = res[1];
+  P.forEach(function(p){
+    if (h.indexOf(p[0]) < 0) { console.warn("Introuvable :", p[0].slice(0, 40)); return; }
+    h = h.replace(p[0], function(){ return p[1]; });
+  });
+  lg = lg.replace("const D=`", function(){ return "const D=`" + EXTRA + "\n"; });
+  var i = h.lastIndexOf("</body>");
+  h = h.slice(0, i) + "<script>" + lg + "<\/script>" + h.slice(i);
+  document.open();
+  document.write(h);
+  document.close();
+}).catch(function(){ location.href = "index34.html"; });
+</script>
+</body>
+</html>
